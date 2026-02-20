@@ -72,3 +72,43 @@ Append-only chronological record. Most recent entry at the bottom.
 - All visual information encoded purely in SVG. Characters are meaningfully distinct at all three sizes.
 - FaceCard uses Blazor CSS isolation (`.razor.css`). The SVG scales via `width:100%; height:auto`.
 - Hat is always drawn last in SVG painter order, so it correctly sits on top of hair.
+
+---
+
+## Iteration 3 — Mystery Person selection
+**Completed**: 2026-02-20
+
+### What was done
+- Added `GameSession.SelectMysteryPerson(string token, int characterId)`: validates player token,
+  sets `PlayerState.MysteryPersonId`, and when both players have confirmed advances `Phase` to
+  `Playing` and sets `RoundNumber = 1`. All state changes inside the session `_lock`; fires
+  `StateChanged` so both circuits re-render immediately.
+- Added `GameSessionService.SelectMysteryPerson(code, token, characterId)`: thin passthrough to
+  the session method, consistent with the service's existing API style.
+- Rewrote `Game.razor` from a placeholder into a three-screen state machine:
+  1. **Picker screen** (phase = `CharacterSelection`, player not yet confirmed): 6-column grid of
+     all 24 face cards at `md` size. Clicking a card sets it as pending (IsMystery glow); all other
+     cards dim to 35% opacity. Sticky footer bar shows a `sm` preview of the selected card, player
+     name, "Confirm" button, and "Change" button. Confirmation calls `SelectMysteryPerson`.
+  2. **Waiting screen** (phase = `CharacterSelection`, player confirmed): displays the chosen
+     Mystery Person at `lg` size with gold glow, "Locked In!" heading, opponent's name, and a
+     CSS spinner. Transitions automatically when the other player confirms (StateChanged event).
+  3. **Playing placeholder** (phase = `Playing`): card with both player names and round number,
+     ready to be replaced by the full board in Iteration 4.
+- Created `Game.razor.css`: scoped styles for `.selection-page` (flex-column, full-height),
+  `.selection-grid` (6-column CSS grid, 100px columns), `.selection-card-wrap--dimmed` (opacity
+  0.35 transition), `.selection-footer` (sticky bar), `.waiting-page`, `.waiting-card` (centered
+  panel with fadeIn animation). All colours use existing design tokens from `app.css`.
+- `Game.razor` implements `IDisposable` and unsubscribes `StateChanged` in `Dispose()` to prevent
+  memory leaks and cross-circuit ghost renders.
+- Build result: **0 errors, 0 warnings**.
+
+### Notes
+- Selection is simultaneous and independent — neither player knows what the other has chosen.
+- `_pendingId` is local component state; it is never persisted to the session. Only `MysteryPersonId`
+  on `PlayerState` is the confirmed server-side truth.
+- The `PlayerState.MysteryPersonId.HasValue` flag drives the picker/waiting branch; no separate
+  local "confirmed" boolean needed.
+- Phase transition (CharacterSelection → Playing) fires a single `StateChanged`, causing both
+  circuits' `OnSessionStateChanged` handlers to call `InvokeAsync(StateHasChanged)` simultaneously,
+  so both players see the Playing screen at essentially the same instant.

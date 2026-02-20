@@ -1,58 +1,88 @@
 # Message to My Successor
 
-## Status after Iteration 2
-Iteration 2 is complete and pushed. All 24 character face cards render correctly from attribute data
-using inline SVG. The gallery page at `/gallery` lets you visually verify all cards. Build: 0 errors,
-0 warnings.
+## Status after Iteration 3
+Iteration 3 complete and pushed. Mystery Person selection is fully functional:
+both players can secretly pick their character, confirm, wait for the opponent,
+and the phase transitions to Playing (RoundNumber = 1). Build: 0 errors, 0 warnings.
 
 ## What to do next
-Pick up **Iteration 3: Mystery Person selection** from `to-do.md`.
+Pick up **Iteration 4: Game board layout** from `to-do.md`.
 
 ### Goal
-When both players navigate to `/game/{Code}`, instead of the placeholder, they should each be shown a
-selection screen presenting all 24 face cards. Each player secretly picks one character as their Mystery
-Person. After confirming, both players wait until the opponent also confirms. Once both players have
-confirmed their selection, the game phase advances to `Playing` and the main game board is shown
-(still a placeholder at this point).
+Replace the "game board placeholder" shown during the `Playing` phase with the
+actual two-column game board layout. No gameplay mechanics yet — just the layout
+shell with all the right sections in the right places.
+
+### Required layout (desktop landscape ≥1280px)
+```
+┌─────────────────────────────┬──────────────────────────┐
+│ LEFT COLUMN                 │ RIGHT COLUMN (fixed ~340px)
+│                             │                          │
+│  ┌── Opponent board ──────┐ │  Score / status bar      │
+│  │ compact (sm) grid      │ │  "Alex 0 – 0 Bernard"    │
+│  │ 24 cards, read-only    │ │  Round 1                 │
+│  └────────────────────────┘ │  "Alex's turn"           │
+│                             │                          │
+│  ┌── Own board ───────────┐ │  Mystery Person          │
+│  │ full (md) grid         │ │  (lg card, gold glow,    │
+│  │ player can flip later  │ │  "Your Mystery Person"   │
+│  │ mystery immune         │ │  label, visible to self) │
+│  └────────────────────────┘ │                          │
+│                             │  Chat panel              │
+│                             │  (empty log placeholder, │
+│                             │  disabled input + Send)  │
+└─────────────────────────────┴──────────────────────────┘
+```
 
 ### Suggested approach
-1. **Add `MysteryPersonId` to `PlayerState`** (it already exists as `int?` — verify this and add if
-   not present). Add a method like `PlayerState.SetMysteryPerson(int characterId)`.
-2. **Add a `CharacterSelection` phase** to the `GamePhase` enum if not already there (it is — check).
-   The `GameSession` should track that both players must confirm before advancing to `Playing`.
-3. **On `GameSession`**, add a method `SelectMysteryPerson(string token, int characterId)`:
-   - Validates the token matches a player in the session
-   - Sets that player's `MysteryPersonId`
-   - If both players have selected, advances `Phase` to `GamePhase.Playing` and fires `StateChanged`
-4. **Update `GameSessionService`**: expose `SelectMysteryPerson` or just pass through to the session.
-5. **Update `Game.razor`** to show different UI based on `GameSession.Phase`:
-   - `GamePhase.CharacterSelection`: show the Mystery Person picker (full-screen grid of 24 cards)
-   - `GamePhase.Playing`: show the game board (still placeholder — just "Game in progress" for now)
-   - `GamePhase.Lobby`: redirect to `/lobby/{Code}` if somehow landed here early
-6. **Mystery Person picker UI**:
-   - Headline: "Choose your Mystery Person" (secret — do not show opponent's pick)
-   - Grid of all 24 `FaceCard` components, `Size="md"`, with `OnClick` callback
-   - Clicking a card selects it (visually highlight it with `IsMystery=true`, others dimmed)
-   - A confirmation button: "Confirm — I choose [Name]!" — submitting calls `SelectMysteryPerson`
-   - After confirming, show a waiting screen: "Waiting for [OpponentName] to choose…" with animation
-   - Waiting screen updates in real time via `StateChanged` subscription (same pattern as Lobby)
-   - When both players confirm, both auto-advance to the game board view
-7. **Lobby should advance phase on start**: when the Lobby auto-navigates both players to `/game/{Code}`,
-   the session phase should move from `Lobby` to `CharacterSelection`. Add a method on `GameSession`
-   like `StartCharacterSelection()` and call it when the second player joins (in `AddPlayer`). Actually,
-   it might be cleaner to call it when the Game page initialises — check which player arrived first.
-   The safest approach: in `Game.razor.OnInitialized`, if both players are present and phase is still
-   `Lobby`, call a `BeginCharacterSelection()` method on the session.
+
+1. **Board order**: each player sees cards in a randomised order. Add
+   `List<int> BoardOrder { get; } = new()` to `PlayerState`. Populate it in
+   `GameSession.SelectMysteryPerson` when phase advances: call
+   `player.BoardOrder.AddRange(CharacterData.All.Select(c => c.Id))`
+   then shuffle with `Random.Shared.Shuffle(CollectionsMarshal.AsSpan(player.BoardOrder))`.
+   Alternatively, populate both players' orders at the moment phase becomes Playing.
+
+2. **Game.razor Playing branch**: replace the placeholder `<div>` with a proper two-column layout div.
+
+3. **Left column — Opponent board (top, ~40% height)**:
+   - Header label: opponent's name + "Board"
+   - 6-column grid of 24 `sm` FaceCard components rendered in *opponent's* `BoardOrder`
+   - All face-up for now (elimination sync comes in Iteration 7)
+   - No `OnClick` — read only
+
+4. **Left column — Own board (bottom, ~60% height)**:
+   - Header label: own name + "Board" or "Your Board"
+   - 6-column grid of 24 `md` FaceCard components in *own* `BoardOrder`
+   - Mystery Person card: `IsMystery="true"` — visually distinguished
+   - No `OnClick` yet (flip mechanic is Iteration 6)
+
+5. **Right column — three stacked sections**:
+   - **Score bar**: round number, championship score ("Alex 0 – 0 Bernard"), turn status.
+     Use placeholder strings for now — these will be wired up in turn management iteration.
+   - **Mystery Person**: `lg` FaceCard with `IsMystery="true"`, labelled "Your Mystery Person".
+     Uses `_me.MysteryPersonId` to look up the character.
+   - **Chat panel**: scrollable `<div>` with placeholder text "The game is afoot…", and below it
+     a disabled text input and disabled Send button. Wire up in Iteration 3 of chat features.
+
+6. **CSS**: create `Game.razor.css` additions or a new section in the existing file for:
+   - `.game-board` — `display: flex; height: 100vh; overflow: hidden`
+   - `.game-left` — `flex: 1; display: flex; flex-direction: column; overflow: hidden`
+   - `.game-right` — `width: 340px; flex-shrink: 0; display: flex; flex-direction: column`
+   - `.board-section` — `flex: 1; overflow: hidden; display: flex; flex-direction: column`
+   - `.board-grid` — `display: grid; grid-template-columns: repeat(6, ...)` — sm for opponent, md for own
+   - `.board-grid-area` — `flex: 1; overflow-y: auto; padding: 8px`
+   - `.score-bar`, `.mystery-panel`, `.chat-panel` — right column sections
 
 ### Things to remember
-- Each player should only see their OWN selection — do not show what the opponent chose.
-- The selection is done simultaneously (both pick at the same time), not turn-based.
-- The confirmation must be two-way: both must select before advancing. The phase transition
-  (`CharacterSelection` → `Playing`) only fires once both `MysteryPersonId` values are set.
-- Use the existing `StateChanged` event pattern for real-time updates. The `Game.razor` component
-  subscribes in `OnInitializedAsync` and unsubscribes in `Dispose()`.
-- `PlayerState` already has a `Token` field for identifying which player is which in the component.
-- **Important UX**: make the picking grid feel exciting — a "choosing your champion" moment. Each
-  card should respond to hover. The selected card should be prominently highlighted before confirmation.
+- The overall layout must NOT introduce page-level scrolling (`overflow: hidden` on root).
+- Individual board grid areas scroll independently (`overflow-y: auto`).
+- The right column has three flex sections — use `flex: 1` on the chat panel so it expands
+  to fill remaining space after score bar and mystery person panel.
+- Both boards show the *shuffled* order specific to each player. The opponent board shows
+  the opponent's order (use `_opponent.BoardOrder`).
+- Use `_me` and `_opponent` references already resolved in the component.
+- The `BoardOrder` property needs to be populated before the board renders — populate it
+  as part of the SelectMysteryPerson phase-transition logic in GameSession.
 
 No messages.
