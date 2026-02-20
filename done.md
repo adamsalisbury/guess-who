@@ -112,3 +112,50 @@ Append-only chronological record. Most recent entry at the bottom.
 - Phase transition (CharacterSelection → Playing) fires a single `StateChanged`, causing both
   circuits' `OnSessionStateChanged` handlers to call `InvokeAsync(StateHasChanged)` simultaneously,
   so both players see the Playing screen at essentially the same instant.
+
+---
+
+## Iteration 4 — Game board layout
+**Completed**: 2026-02-20
+
+### What was done
+- Added `BoardOrder: List<int>` to `PlayerState` — a per-player randomly-shuffled list of all 24
+  character IDs. This determines the visual order of cards on each player's board, independently
+  randomised so both players see a different arrangement.
+- Added `GameSession.ShuffleBoardOrders()` (private, called inside `_lock`): uses
+  `Random.Shared.Shuffle(Span<T>)` on a cloned `int[]` of all character IDs to independently
+  shuffle both players' board orders. Called exactly once when phase transitions to Playing.
+- Added `using GuessWho.Data;` to `GameSession.cs` so it can access `CharacterData.All`.
+- Replaced the Playing-phase placeholder in `Game.razor` with the full two-column game board:
+  - **Left column** (`flex: 1`, `flex-direction: column`):
+    - **Opponent board (top, `flex: 0 0 40%`)**: header with opponent name; 6-column `sm` card
+      grid in opponent's `BoardOrder`; `FaceDown` driven by `_opponent.EliminatedIds`; read-only.
+    - **1px divider**.
+    - **Own board (bottom, `flex: 1`)**: header with player's own name; 6-column `md` card grid
+      in player's own `BoardOrder`; Mystery Person card gets `IsMystery="true"` (gold glow);
+      eliminated cards get `FaceDown="true"`. No `OnClick` yet (flip mechanic is Iteration 5).
+  - **Right column** (`width: 340px`, `flex-direction: column`, dark surface background):
+    - **Score bar**: round number, championship score with player names and gold numerals,
+      "Game in progress…" turn status placeholder.
+    - **Mystery Person panel**: `lg` FaceCard (gold glow), "Your Mystery Person" label,
+      keep-secret hint. Hidden from opponent (each player only sees their own `_me` data).
+    - **Chat panel** (`flex: 1`): scrollable log ("The game is afoot…" placeholder, messages
+      pin to bottom); disabled text input + Send button.
+- Added `Game.razor.css` board layout section: `.game-board`, `.game-left`, `.board-section`,
+  `.board-section--own`, `.board-divider`, `.board-header`, `.board-grid-area`, `.board-grid`,
+  `.board-grid--sm` (6×78px cols, 6px gap), `.board-grid--md` (6×108px cols, 8px gap),
+  `.game-right`, `.score-bar`, `.score-display`, `.score-name`, `.score-value`, `.score-dash`,
+  `.turn-status`, `.mystery-panel`, `.mystery-label`, `.mystery-card-wrap`, `.mystery-keep-secret`,
+  `.chat-panel`, `.chat-header`, `.chat-log`, `.chat-placeholder`, `.chat-input-area`,
+  `.chat-input`, `.chat-send-btn`.
+- Build result: **0 errors, 0 warnings**.
+
+### Notes
+- Both board grid areas use `overflow-y: auto` — each scrolls independently.
+- `min-height: 0` on `.board-section` and `.chat-panel` is essential for flex-in-flex overflow to work.
+- `justify-content: center` on `.board-grid` centres the 6-column track within the left column;
+  cards are left-aligned within each fixed-width cell.
+- `_me` is set once in `OnInitialized` and never re-assigned — since `PlayerState` is a reference type,
+  `_me.BoardOrder` automatically reflects server-side mutations to the same object.
+- The score bar displays `Player1?.RoundWins` and `Player2?.RoundWins` (both 0 at game start).
+  Championship scoring wired in Iteration 9.

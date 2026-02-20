@@ -11,7 +11,7 @@ First to 5 round wins takes the match.
 - **ASP.NET Core 8 + Blazor Server** (single project: `GuessWho/GuessWho.csproj`)
 - **Interactive Server render mode** (`@rendermode InteractiveServer` on each page component)
 - **No SignalR hub** — inter-player real-time communication uses a singleton `GameSessionService` with C# events; both Blazor circuits subscribe to `GameSession.StateChanged` and call `InvokeAsync(StateHasChanged)`. This is idiomatic Blazor Server and avoids a second WebSocket per client.
-- **No external assets** — all visuals will be generated from attribute data (CSS/SVG)
+- **No external assets** — all visuals generated from attribute data (CSS/SVG)
 
 ### Solution layout
 ```
@@ -22,7 +22,7 @@ GuessWho/                  ← solution root (also git repo root)
 │   │   ├── Pages/
 │   │   │   ├── Landing.razor    ← "/" — name entry, New/Join Game
 │   │   │   ├── Lobby.razor      ← "/lobby/{Code}" — wait for opponent
-│   │   │   ├── Game.razor       ← "/game/{Code}" — main game board (placeholder)
+│   │   │   ├── Game.razor       ← "/game/{Code}" — full game board
 │   │   │   ├── Gallery.razor    ← "/gallery" — dev utility: all 24 face cards
 │   │   │   └── Gallery.razor.css
 │   │   ├── Layout/
@@ -64,26 +64,28 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 3)
+## Current state (after Iteration 4)
 - Landing page functional: name entry, New Game (creates session), Join Game (validates code, joins session)
-- Lobby page functional: both players shown by name, connection status, "Waiting for opponent…" / "Starting…"
+- Lobby page functional: both players shown by name, connection status, auto-navigation to game page
 - Both players auto-navigate to `/game/{Code}` when lobby is full
-- **Game page (`/game/{Code}`)**: full character selection flow implemented:
-  - `CharacterSelection` phase + unconfirmed → 6-column picker grid of all 24 md face cards; hover/click
-    highlights with IsMystery glow; non-selected cards dim when one is pending; sticky footer shows preview
-    of selected card with "Confirm" and "Change" buttons
-  - `CharacterSelection` phase + confirmed → waiting screen with player's Mystery Person revealed (lg),
-    gold "Locked In!" heading, spinner, opponent name
-  - `Playing` phase → placeholder card (ready for Iteration 4 game board)
-  - `Game.razor.css`: scoped styles for selection-page, selection-grid, selection-footer, waiting-page,
-    waiting-card; dark gold-gradient backgrounds, smooth opacity transitions on card dimming
-- `GameSession.SelectMysteryPerson(token, characterId)`: validates token, sets `PlayerState.MysteryPersonId`,
-  advances `Phase` to `Playing` and sets `RoundNumber = 1` when both players have confirmed; thread-safe
-- `GameSessionService.SelectMysteryPerson(code, token, characterId)`: thin passthrough
-- 24 characters defined in `CharacterData.All` with all required attributes
-- **FaceCard component** (`Components/FaceCard.razor` + `.razor.css`): renders any character as an SVG face
-  card driven purely by attribute data. Three sizes: `sm`, `md`, `lg`. States: normal, mystery, face-down.
-- **Gallery page** (`/gallery`): dev utility — all 24 cards, size comparison, state comparison.
+- **Mystery Person selection** (CharacterSelection phase): picker grid, footer preview, confirm flow, waiting screen — all functional and real-time
+- **Game board** (`/game/{Code}` Playing phase): full two-column desktop layout implemented:
+  - **Left column** — two board sections stacked vertically, each independently scrollable:
+    - **Opponent board (top, ~40%)**: 6-column `sm`-card grid in opponent's `BoardOrder`; all face-up;
+      header shows opponent's name; read-only
+    - **Own board (bottom, remaining)**: 6-column `md`-card grid in player's own `BoardOrder`; Mystery
+      Person card has gold glow (`IsMystery`); header shows player's name
+  - **Right column (340px)** — three stacked sections:
+    - **Score bar**: Round number, championship score ("Alex 0 – 0 Bernard"), "Game in progress…" status
+      (turn management wired in Iteration 5)
+    - **Mystery Person panel**: `lg` FaceCard with gold glow, "Your Mystery Person" label, keep-secret hint
+    - **Chat panel**: scrollable log with "The game is afoot…" placeholder; disabled input + Send button
+      (wired in Iteration 3 of chat)
+- `PlayerState.BoardOrder`: `List<int>` of all 24 character IDs in a player-specific random shuffle;
+  populated by `GameSession.ShuffleBoardOrders()` when phase transitions CharacterSelection → Playing.
+  Each player's board order is independently shuffled.
+- `GameSession.ShuffleBoardOrders()`: private helper; uses `Random.Shared.Shuffle(Span<T>)` on a cloned
+  array; called once inside the `_lock` at the moment of phase transition.
 - Build: **0 errors, 0 warnings**
 
 ## Design decisions & known trade-offs
@@ -91,3 +93,7 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
 - Session cleanup not yet implemented — sessions persist until process restart
 - No reconnect logic for dropped Blazor circuits (future: store token in sessionStorage, re-subscribe)
 - Bootstrap CSS is included in the template but not actively used — custom CSS in `app.css` is the design system
+- `GameSession` imports `GuessWho.Data` (for `CharacterData`) to populate `BoardOrder`. Acceptable for
+  a single-project small game; would separate in a multi-project architecture.
+- Turn status in score bar shows a placeholder ("Game in progress…") — wired in Iteration 5
+- Chat input is disabled — wired in Iteration 3 of chat features

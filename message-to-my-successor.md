@@ -1,88 +1,109 @@
 # Message to My Successor
 
-## Status after Iteration 3
-Iteration 3 complete and pushed. Mystery Person selection is fully functional:
-both players can secretly pick their character, confirm, wait for the opponent,
-and the phase transitions to Playing (RoundNumber = 1). Build: 0 errors, 0 warnings.
+## Status after Iteration 4
+Iteration 4 complete and pushed. The full two-column game board layout is live for the Playing
+phase. Both boards render correctly with the players' independently shuffled card orders.
+The right column shows score bar, Mystery Person display, and a placeholder chat panel.
+Build: 0 errors, 0 warnings.
 
 ## What to do next
-Pick up **Iteration 4: Game board layout** from `to-do.md`.
+Pick up **Iteration 5: Turn management** from `to-do.md`.
 
 ### Goal
-Replace the "game board placeholder" shown during the `Playing` phase with the
-actual two-column game board layout. No gameplay mechanics yet — just the layout
-shell with all the right sections in the right places.
+Wire up alternating turn logic so the game knows whose turn it is, and the UI reflects this
+clearly. No gameplay mechanics yet — just turn tracking and UI state locking.
 
-### Required layout (desktop landscape ≥1280px)
-```
-┌─────────────────────────────┬──────────────────────────┐
-│ LEFT COLUMN                 │ RIGHT COLUMN (fixed ~340px)
-│                             │                          │
-│  ┌── Opponent board ──────┐ │  Score / status bar      │
-│  │ compact (sm) grid      │ │  "Alex 0 – 0 Bernard"    │
-│  │ 24 cards, read-only    │ │  Round 1                 │
-│  └────────────────────────┘ │  "Alex's turn"           │
-│                             │                          │
-│  ┌── Own board ───────────┐ │  Mystery Person          │
-│  │ full (md) grid         │ │  (lg card, gold glow,    │
-│  │ player can flip later  │ │  "Your Mystery Person"   │
-│  │ mystery immune         │ │  label, visible to self) │
-│  └────────────────────────┘ │                          │
-│                             │  Chat panel              │
-│                             │  (empty log placeholder, │
-│                             │  disabled input + Send)  │
-└─────────────────────────────┴──────────────────────────┘
+### Server-side changes needed
+
+Add to `GameSession`:
+
+```csharp
+/// <summary>Token of the player whose turn it is. Set when phase → Playing.</summary>
+public string ActivePlayerToken { get; private set; } = "";
+
+/// <summary>Whether a question has already been asked this turn.</summary>
+public bool QuestionAsked { get; set; }
+
+/// <summary>Returns true if the given token belongs to the active player.</summary>
+public bool IsActivePlayer(string token) => token == ActivePlayerToken;
 ```
 
-### Suggested approach
+In `SelectMysteryPerson`, when both players confirm and phase transitions to Playing,
+also set `ActivePlayerToken = Player1!.Token` (Player 1 always goes first in round 1).
 
-1. **Board order**: each player sees cards in a randomised order. Add
-   `List<int> BoardOrder { get; } = new()` to `PlayerState`. Populate it in
-   `GameSession.SelectMysteryPerson` when phase advances: call
-   `player.BoardOrder.AddRange(CharacterData.All.Select(c => c.Id))`
-   then shuffle with `Random.Shared.Shuffle(CollectionsMarshal.AsSpan(player.BoardOrder))`.
-   Alternatively, populate both players' orders at the moment phase becomes Playing.
+Add a `StartNextTurn(string currentToken)` method:
+```csharp
+public void StartNextTurn(string currentToken)
+{
+    lock (_lock)
+    {
+        // Pass turn to the other player
+        ActivePlayerToken = (ActivePlayerToken == Player1?.Token)
+            ? Player2!.Token
+            : Player1!.Token;
+        QuestionAsked = false;
+        NotifyStateChanged();
+    }
+}
+```
 
-2. **Game.razor Playing branch**: replace the placeholder `<div>` with a proper two-column layout div.
+### Client-side changes needed
 
-3. **Left column — Opponent board (top, ~40% height)**:
-   - Header label: opponent's name + "Board"
-   - 6-column grid of 24 `sm` FaceCard components rendered in *opponent's* `BoardOrder`
-   - All face-up for now (elimination sync comes in Iteration 7)
-   - No `OnClick` — read only
+In `Game.razor`, add a helper:
+```csharp
+private bool _isMyTurn => _session is not null && MyToken is not null
+    && _session.IsActivePlayer(MyToken);
+```
 
-4. **Left column — Own board (bottom, ~60% height)**:
-   - Header label: own name + "Board" or "Your Board"
-   - 6-column grid of 24 `md` FaceCard components in *own* `BoardOrder`
-   - Mystery Person card: `IsMystery="true"` — visually distinguished
-   - No `OnClick` yet (flip mechanic is Iteration 6)
+In the score bar section, replace "Game in progress…" with:
+```razor
+<div class="turn-status @(_isMyTurn ? "turn-status--active" : "")">
+    @if (_isMyTurn)
+    {
+        <span>Your turn</span>
+    }
+    else
+    {
+        <span>@(_opponent?.Name ?? "Opponent")'s turn</span>
+    }
+</div>
+```
 
-5. **Right column — three stacked sections**:
-   - **Score bar**: round number, championship score ("Alex 0 – 0 Bernard"), turn status.
-     Use placeholder strings for now — these will be wired up in turn management iteration.
-   - **Mystery Person**: `lg` FaceCard with `IsMystery="true"`, labelled "Your Mystery Person".
-     Uses `_me.MysteryPersonId` to look up the character.
-   - **Chat panel**: scrollable `<div>` with placeholder text "The game is afoot…", and below it
-     a disabled text input and disabled Send button. Wire up in Iteration 3 of chat features.
+The full turn indicator should use player names everywhere:
+- Active player: "Alex's turn" (gold colour)
+- Inactive player: "Waiting for Bernard…" (muted)
 
-6. **CSS**: create `Game.razor.css` additions or a new section in the existing file for:
-   - `.game-board` — `display: flex; height: 100vh; overflow: hidden`
-   - `.game-left` — `flex: 1; display: flex; flex-direction: column; overflow: hidden`
-   - `.game-right` — `width: 340px; flex-shrink: 0; display: flex; flex-direction: column`
-   - `.board-section` — `flex: 1; overflow: hidden; display: flex; flex-direction: column`
-   - `.board-grid` — `display: grid; grid-template-columns: repeat(6, ...)` — sm for opponent, md for own
-   - `.board-grid-area` — `flex: 1; overflow-y: auto; padding: 8px`
-   - `.score-bar`, `.mystery-panel`, `.chat-panel` — right column sections
+Add an "End Turn" button to the chat input area (visible to active player only):
+```razor
+@if (_isMyTurn)
+{
+    <button class="btn btn-secondary end-turn-btn" @onclick="EndTurn">End Turn</button>
+}
+```
+
+Wire `EndTurn()` to call `GameSessionService.StartNextTurn(Code, MyToken!)`.
+
+Add to `GameSessionService`:
+```csharp
+public void StartNextTurn(string code, string playerToken) =>
+    GetSession(code)?.StartNextTurn(playerToken);
+```
+
+### CSS additions
+`.turn-status--active { color: var(--accent-gold); font-weight: 700; }`
+`.end-turn-btn { ... }` — secondary button style, fits in chat input area.
+
+### Locking inactive player controls
+- Chat input: `disabled="@(!_isMyTurn)"` (already disabled; now conditionally enabled)
+- Send button: same logic
+- End Turn button: only rendered for active player
 
 ### Things to remember
-- The overall layout must NOT introduce page-level scrolling (`overflow: hidden` on root).
-- Individual board grid areas scroll independently (`overflow-y: auto`).
-- The right column has three flex sections — use `flex: 1` on the chat panel so it expands
-  to fill remaining space after score bar and mystery person panel.
-- Both boards show the *shuffled* order specific to each player. The opponent board shows
-  the opponent's order (use `_opponent.BoardOrder`).
-- Use `_me` and `_opponent` references already resolved in the component.
-- The `BoardOrder` property needs to be populated before the board renders — populate it
-  as part of the SelectMysteryPerson phase-transition logic in GameSession.
+- `_isMyTurn` must be recomputed after every `StateHasChanged()` call (it reads `_session.ActivePlayerToken`,
+  which is a reference type property, so it auto-updates).
+- `StartNextTurn` fires `StateChanged`, so both circuits re-render and the inactive player sees
+  "Your turn" as soon as the active player ends their turn.
+- Turn management has NO countdown yet — that's Iteration 4 of turn mechanics (item 4 in to-do.md).
+  For now, only the "End Turn" button passes the turn.
 
 No messages.
