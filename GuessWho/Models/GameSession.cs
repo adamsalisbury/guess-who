@@ -1,3 +1,5 @@
+using GuessWho.Data;
+
 namespace GuessWho.Models;
 
 /// <summary>
@@ -69,6 +71,7 @@ public sealed class GameSession
             {
                 Phase = GamePhase.Playing;
                 RoundNumber = 1;
+                ShuffleBoardOrders();
             }
 
             NotifyStateChanged();
@@ -84,6 +87,28 @@ public sealed class GameSession
         Player1?.Token == token ? Player2
         : Player2?.Token == token ? Player1
         : null;
+
+    /// <summary>
+    /// Assigns each player a unique randomly-shuffled ordering of all 24 character IDs.
+    /// Called once when the session transitions from CharacterSelection to Playing.
+    /// Must be called inside _lock.
+    /// </summary>
+    private void ShuffleBoardOrders()
+    {
+        var allIds = CharacterData.All.Select(c => c.Id).ToArray();
+
+        // Player 1's board — shuffle a fresh copy
+        var p1Ids = (int[])allIds.Clone();
+        Random.Shared.Shuffle(p1Ids);
+        Player1!.BoardOrder.Clear();
+        Player1.BoardOrder.AddRange(p1Ids);
+
+        // Player 2's board — shuffle another independent copy
+        var p2Ids = (int[])allIds.Clone();
+        Random.Shared.Shuffle(p2Ids);
+        Player2!.BoardOrder.Clear();
+        Player2.BoardOrder.AddRange(p2Ids);
+    }
 
     internal void NotifyStateChanged() =>
         StateChanged?.Invoke(this, EventArgs.Empty);

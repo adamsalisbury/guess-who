@@ -12,6 +12,14 @@ public sealed class PlayerState
 
     // Round state — populated once CharacterSelection is complete
     public int? MysteryPersonId { get; set; }
+
+    /// <summary>
+    /// The shuffled order in which this player sees face cards on their board.
+    /// Populated when the session transitions to Playing phase.
+    /// Each element is a Character.Id.
+    /// </summary>
+    public List<int> BoardOrder { get; } = [];
+
     public HashSet<int> EliminatedIds { get; } = [];
 
     // Championship scoring
