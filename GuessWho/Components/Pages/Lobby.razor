@@ -1,0 +1,185 @@
+@page "/lobby/{Code}"
+@rendermode InteractiveServer
+@implements IDisposable
+@inject GameSessionService GameSessionService
+@inject NavigationManager Nav
+
+<PageTitle>Lobby — @Code | Guess Who?</PageTitle>
+
+<div class="lobby-page">
+    <div class="lobby-card">
+        <a href="/" class="back-link">← Back to Home</a>
+
+        <div class="lobby-header">
+            <h1>Guess Who?</h1>
+            <div class="game-code-display">
+                <span class="game-code-label">Game Code</span>
+                <span class="game-code">@Code</span>
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="lobby-status">
+                <div class="spinner"></div>
+                <p>Connecting…</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert-error">@errorMessage</div>
+            <a href="/" class="btn btn-secondary" style="margin-top: 1rem; display: inline-block;">Return Home</a>
+        }
+        else if (session is not null)
+        {
+            <div class="players-grid">
+                <div class="player-slot @(session.Player1 is not null ? "slot-connected" : "slot-waiting")">
+                    <div class="slot-avatar">
+                        @if (session.Player1 is not null)
+                        {
+                            <span>@session.Player1.Name[0]</span>
+                        }
+                        else
+                        {
+                            <span>?</span>
+                        }
+                    </div>
+                    <div class="slot-info">
+                        <span class="slot-name">@(session.Player1?.Name ?? "Waiting…")</span>
+                        <span class="slot-tag">@(session.Player1 is not null ? "Ready" : "Open")</span>
+                    </div>
+                    @if (MyToken == session.Player1?.Token)
+                    {
+                        <span class="you-badge">You</span>
+                    }
+                </div>
+
+                <div class="vs-divider">VS</div>
+
+                <div class="player-slot @(session.Player2 is not null ? "slot-connected" : "slot-waiting")">
+                    <div class="slot-avatar">
+                        @if (session.Player2 is not null)
+                        {
+                            <span>@session.Player2.Name[0]</span>
+                        }
+                        else
+                        {
+                            <span>?</span>
+                        }
+                    </div>
+                    <div class="slot-info">
+                        <span class="slot-name">@(session.Player2?.Name ?? "Waiting…")</span>
+                        <span class="slot-tag">@(session.Player2 is not null ? "Ready" : "Open")</span>
+                    </div>
+                    @if (MyToken == session.Player2?.Token)
+                    {
+                        <span class="you-badge">You</span>
+                    }
+                </div>
+            </div>
+
+            @if (!session.IsFull)
+            {
+                <div class="waiting-section">
+                    <div class="waiting-animation">
+                        <div class="dot-pulse"></div>
+                    </div>
+                    <p class="waiting-text">Waiting for your opponent…</p>
+                    <p class="share-hint">Share the code <strong>@Code</strong> with your opponent to start.</p>
+                </div>
+            }
+            else
+            {
+                <div class="starting-section">
+                    <div class="starting-icon">✓</div>
+                    <p class="starting-text">Both players connected! Starting game…</p>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Code { get; set; } = "";
+    [SupplyParameterFromQuery(Name = "name")] public string? PlayerName { get; set; }
+    [SupplyParameterFromQuery(Name = "token")] public string? MyToken { get; set; }
+    [SupplyParameterFromQuery(Name = "joined")] public bool AlreadyJoined { get; set; }
+
+    private GameSession? session;
+    private bool isLoading = true;
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Validate required query params — redirect home if missing
+        if (string.IsNullOrWhiteSpace(PlayerName) || string.IsNullOrWhiteSpace(MyToken))
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+
+        if (AlreadyJoined)
+        {
+            // Player 2: session.AddPlayer was already called from Landing page; just look up the session
+            session = GameSessionService.GetSession(Code);
+            if (session is null)
+            {
+                errorMessage = $"Game \"{Code}\" could not be found. It may have expired.";
+                isLoading = false;
+                return;
+            }
+        }
+        else
+        {
+            // Player 1 (creator): session was created on landing page
+            session = GameSessionService.GetSession(Code);
+            if (session is null)
+            {
+                errorMessage = "Session not found. Please start a new game from the home page.";
+                isLoading = false;
+                return;
+            }
+        }
+
+        session.StateChanged += OnSessionStateChanged;
+
+        isLoading = false;
+
+        // If the game is already full when this page loads (e.g. refresh), navigate straight to game
+        if (session.IsFull)
+            await NavigateToGame();
+    }
+
+    private async void OnSessionStateChanged(object? sender, EventArgs e)
+    {
+        await InvokeAsync(async () =>
+        {
+            StateHasChanged();
+
+            if (session?.IsFull == true)
+            {
+                // Give both players a moment to see the "Starting…" confirmation
+                await Task.Delay(1200);
+                NavigateToGameSync();
+            }
+        });
+    }
+
+    private async Task NavigateToGame()
+    {
+        await Task.Delay(1200);
+        NavigateToGameSync();
+    }
+
+    private void NavigateToGameSync()
+    {
+        var encodedName = Uri.EscapeDataString(PlayerName ?? "");
+        Nav.NavigateTo($"/game/{Code}?name={encodedName}&token={MyToken}");
+    }
+
+    public void Dispose()
+    {
+        if (session is not null)
+            session.StateChanged -= OnSessionStateChanged;
+    }
+}

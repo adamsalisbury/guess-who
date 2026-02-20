@@ -1,0 +1,43 @@
+@page "/game/{Code}"
+@rendermode InteractiveServer
+@inject GameSessionService GameSessionService
+@inject NavigationManager Nav
+
+<PageTitle>@Code | Guess Who?</PageTitle>
+
+<div class="game-placeholder-page">
+    @if (session is null)
+    {
+        <div class="placeholder-card">
+            <p>Session not found. <a href="/">Return home</a></p>
+        </div>
+    }
+    else
+    {
+        <div class="placeholder-card">
+            <h2>Game in progress — <span class="code-inline">@Code</span></h2>
+            <div class="matchup">
+                <span class="player-name-tag">@(session.Player1?.Name ?? "Player 1")</span>
+                <span class="vs-text">vs</span>
+                <span class="player-name-tag">@(session.Player2?.Name ?? "Player 2")</span>
+            </div>
+            <p class="iteration-note">
+                The game board is coming in the next iteration. Both players are connected and the session is live.
+            </p>
+            <a href="/" class="btn btn-secondary">Back to Home</a>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Code { get; set; } = "";
+    [SupplyParameterFromQuery(Name = "name")] public string? PlayerName { get; set; }
+    [SupplyParameterFromQuery(Name = "token")] public string? MyToken { get; set; }
+
+    private GameSession? session;
+
+    protected override void OnInitialized()
+    {
+        session = GameSessionService.GetSession(Code);
+    }
+}

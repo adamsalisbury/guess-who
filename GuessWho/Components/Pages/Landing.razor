@@ -1,0 +1,169 @@
+@page "/"
+@rendermode InteractiveServer
+@inject GameSessionService GameSessionService
+@inject NavigationManager Nav
+
+<PageTitle>Guess Who?</PageTitle>
+
+<div class="landing-page">
+    <div class="landing-card">
+        <div class="landing-logo">
+            <span class="logo-face">🎭</span>
+            <h1 class="logo-title">Guess Who?</h1>
+            <p class="logo-subtitle">The classic deduction game — two players, real-time.</p>
+        </div>
+
+        <div class="landing-form">
+            <div class="field-group">
+                <label class="field-label" for="player-name">Your Name</label>
+                <input
+                    id="player-name"
+                    class="text-input @(nameError ? "input-error" : "")"
+                    type="text"
+                    maxlength="20"
+                    placeholder="Enter your name…"
+                    @bind="playerName"
+                    @bind:event="oninput"
+                    @onkeydown="OnKeyDown" />
+                @if (nameError)
+                {
+                    <p class="field-error">Name is required (max 20 characters).</p>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert-error">@errorMessage</div>
+            }
+
+            <div class="action-row">
+                <button class="btn btn-primary" @onclick="NewGame" disabled="@isProcessing">
+                    New Game
+                </button>
+                <button class="btn btn-secondary" @onclick="ToggleJoinForm" disabled="@isProcessing">
+                    Join Game
+                </button>
+            </div>
+
+            @if (showJoinForm)
+            {
+                <div class="join-section">
+                    <div class="field-group">
+                        <label class="field-label" for="game-code">Game Code</label>
+                        <input
+                            id="game-code"
+                            class="text-input code-input @(codeError ? "input-error" : "")"
+                            type="text"
+                            maxlength="6"
+                            placeholder="e.g. XKQF"
+                            @bind="gameCode"
+                            @bind:event="oninput"
+                            @onkeydown="OnJoinKeyDown" />
+                        @if (codeError)
+                        {
+                            <p class="field-error">Please enter a game code.</p>
+                        }
+                    </div>
+                    <button class="btn btn-primary btn-full" @onclick="JoinGame" disabled="@isProcessing">
+                        @if (isProcessing)
+                        {
+                            <span>Joining…</span>
+                        }
+                        else
+                        {
+                            <span>Join →</span>
+                        }
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string playerName = "";
+    private string gameCode = "";
+    private bool showJoinForm;
+    private bool nameError;
+    private bool codeError;
+    private string errorMessage = "";
+    private bool isProcessing;
+
+    private void ToggleJoinForm()
+    {
+        if (!ValidateName()) return;
+        showJoinForm = !showJoinForm;
+        errorMessage = "";
+        codeError = false;
+    }
+
+    private async Task NewGame()
+    {
+        if (!ValidateName()) return;
+
+        isProcessing = true;
+        errorMessage = "";
+
+        var token = Guid.NewGuid().ToString("N");
+        var session = GameSessionService.CreateSession(token, playerName.Trim());
+
+        // Small delay so the button state renders before navigation
+        await Task.Delay(50);
+        Nav.NavigateTo($"/lobby/{session.Code}?name={Uri.EscapeDataString(playerName.Trim())}&token={token}");
+    }
+
+    private void JoinGame()
+    {
+        if (!ValidateName()) return;
+
+        var code = gameCode.Trim().ToUpperInvariant();
+        if (string.IsNullOrEmpty(code))
+        {
+            codeError = true;
+            return;
+        }
+        codeError = false;
+
+        isProcessing = true;
+        errorMessage = "";
+
+        // Validate the code exists before navigating
+        var token = Guid.NewGuid().ToString("N");
+        var (result, _) = GameSessionService.JoinSession(code, token, playerName.Trim());
+
+        switch (result)
+        {
+            case JoinResult.Success:
+                Nav.NavigateTo($"/lobby/{code}?name={Uri.EscapeDataString(playerName.Trim())}&token={token}&joined=true");
+                break;
+            case JoinResult.NotFound:
+                errorMessage = $"No game found with code \"{code}\". Double-check and try again.";
+                isProcessing = false;
+                break;
+            case JoinResult.Full:
+                errorMessage = "That game is already full. Ask your opponent to start a new game.";
+                isProcessing = false;
+                break;
+            case JoinResult.AlreadyJoined:
+                Nav.NavigateTo($"/lobby/{code}?name={Uri.EscapeDataString(playerName.Trim())}&token={token}&joined=true");
+                break;
+        }
+    }
+
+    private bool ValidateName()
+    {
+        var name = playerName.Trim();
+        nameError = name.Length == 0 || name.Length > 20;
+        return !nameError;
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await NewGame();
+    }
+
+    private void OnJoinKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") JoinGame();
+    }
+}
