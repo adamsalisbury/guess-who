@@ -51,6 +51,30 @@ public sealed class GameSession
         }
     }
 
+    /// <summary>
+    /// Records a player's Mystery Person choice. Once both players have selected,
+    /// advances the session to the Playing phase and sets RoundNumber to 1.
+    /// No-ops if the token is unrecognised or the player has already confirmed.
+    /// </summary>
+    public void SelectMysteryPerson(string token, int characterId)
+    {
+        lock (_lock)
+        {
+            var player = GetPlayer(token);
+            if (player is null || player.MysteryPersonId.HasValue) return;
+
+            player.MysteryPersonId = characterId;
+
+            if (Player1?.MysteryPersonId.HasValue == true && Player2?.MysteryPersonId.HasValue == true)
+            {
+                Phase = GamePhase.Playing;
+                RoundNumber = 1;
+            }
+
+            NotifyStateChanged();
+        }
+    }
+
     public PlayerState? GetPlayer(string token) =>
         Player1?.Token == token ? Player1
         : Player2?.Token == token ? Player2

@@ -63,6 +63,13 @@ public sealed class GameSessionService
     public GameSession? GetSession(string code) =>
         _sessions.TryGetValue(code.ToUpperInvariant().Trim(), out var s) ? s : null;
 
+    /// <summary>
+    /// Records the specified player's Mystery Person selection.
+    /// Delegates to GameSession.SelectMysteryPerson; no-ops if session not found.
+    /// </summary>
+    public void SelectMysteryPerson(string code, string playerToken, int characterId) =>
+        GetSession(code)?.SelectMysteryPerson(playerToken, characterId);
+
     /// <summary>Removes sessions that are empty or abandoned (no players for > 2 hours).</summary>
     public void RemoveSession(string code) =>
         _sessions.TryRemove(code.ToUpperInvariant().Trim(), out _);

@@ -1,43 +1,186 @@
 @page "/game/{Code}"
 @rendermode InteractiveServer
+@implements IDisposable
 @inject GameSessionService GameSessionService
 @inject NavigationManager Nav
+@using GuessWho.Data
+@using GuessWho.Models
 
 <PageTitle>@Code | Guess Who?</PageTitle>
 
-<div class="game-placeholder-page">
-    @if (session is null)
-    {
+@* ── Session / participant guard ────────────────────────────── *@
+@if (_session is null)
+{
+    <div class="game-placeholder-page">
         <div class="placeholder-card">
             <p>Session not found. <a href="/">Return home</a></p>
         </div>
-    }
-    else
-    {
+    </div>
+}
+else if (_me is null)
+{
+    <div class="game-placeholder-page">
         <div class="placeholder-card">
-            <h2>Game in progress — <span class="code-inline">@Code</span></h2>
+            <p>You are not part of this session. <a href="/">Return home</a></p>
+        </div>
+    </div>
+}
+
+@* ── CharacterSelection: picker ─────────────────────────────── *@
+else if (_session.Phase == GamePhase.CharacterSelection && !_me.MysteryPersonId.HasValue)
+{
+    <div class="selection-page">
+
+        <div class="selection-header">
+            <h1 class="selection-title">Choose Your Mystery Person</h1>
+            <p class="selection-subtitle">
+                Your choice is secret —
+                <strong>@(_opponent?.Name ?? "your opponent")</strong>
+                won't know who you picked.
+            </p>
+        </div>
+
+        <div class="selection-grid-area">
+            <div class="selection-grid">
+                @foreach (var character in CharacterData.All)
+                {
+                    var charId = character.Id;
+                    <div class="selection-card-wrap @(_pendingId.HasValue && _pendingId != charId ? "selection-card-wrap--dimmed" : "")">
+                        <FaceCard Character="character"
+                                  Size="md"
+                                  ShowName="true"
+                                  IsMystery="@(_pendingId == charId)"
+                                  OnClick="@(_ => SetPending(charId))" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="selection-footer">
+            @if (_pendingId.HasValue)
+            {
+                var chosen = CharacterData.GetById(_pendingId.Value)!;
+                <div class="selection-chosen">
+                    <FaceCard Character="chosen" Size="sm" IsMystery="true" ShowName="false" />
+                    <span class="selection-chosen-name">@chosen.Name</span>
+                </div>
+                <button class="btn btn-primary selection-confirm-btn" @onclick="ConfirmSelection">
+                    Confirm — @chosen.Name is my Mystery Person
+                </button>
+                <button class="btn btn-secondary" @onclick="ClearPending">
+                    Change
+                </button>
+            }
+            else
+            {
+                <p class="selection-hint">Click any character card to select your Mystery Person</p>
+            }
+        </div>
+
+    </div>
+}
+
+@* ── CharacterSelection: waiting for opponent ──────────────── *@
+else if (_session.Phase == GamePhase.CharacterSelection && _me.MysteryPersonId.HasValue)
+{
+    var myPerson = CharacterData.GetById(_me.MysteryPersonId.Value);
+    <div class="waiting-page">
+        <div class="waiting-card">
+            <div class="waiting-mystery">
+                <FaceCard Character="myPerson" Size="lg" IsMystery="true" ShowName="true" />
+            </div>
+            <h2 class="waiting-title">Locked In!</h2>
+            <p class="waiting-subtitle">
+                Your Mystery Person is
+                <strong class="waiting-highlight">@myPerson?.Name</strong>.
+            </p>
+            <p class="waiting-subtitle">
+                Waiting for <strong>@(_opponent?.Name ?? "your opponent")</strong> to choose…
+            </p>
+            <div class="spinner waiting-spinner"></div>
+        </div>
+    </div>
+}
+
+@* ── Playing phase ─────────────────────────────────────────── *@
+else if (_session.Phase == GamePhase.Playing)
+{
+    <div class="game-placeholder-page">
+        <div class="placeholder-card">
+            <h2>Round @_session.RoundNumber — Game On!</h2>
             <div class="matchup">
-                <span class="player-name-tag">@(session.Player1?.Name ?? "Player 1")</span>
+                <span class="player-name-tag">@_session.Player1?.Name</span>
                 <span class="vs-text">vs</span>
-                <span class="player-name-tag">@(session.Player2?.Name ?? "Player 2")</span>
+                <span class="player-name-tag">@_session.Player2?.Name</span>
             </div>
             <p class="iteration-note">
-                The game board is coming in the next iteration. Both players are connected and the session is live.
+                Both players have chosen their Mystery Person.
+                The full game board arrives in the next iteration!
             </p>
             <a href="/" class="btn btn-secondary">Back to Home</a>
         </div>
-    }
-</div>
+    </div>
+}
+
+@* ── Fallback ──────────────────────────────────────────────── *@
+else
+{
+    <div class="game-placeholder-page">
+        <div class="placeholder-card">
+            <p>Session ended or unavailable. <a href="/">Return home</a></p>
+        </div>
+    </div>
+}
 
 @code {
     [Parameter] public string Code { get; set; } = "";
     [SupplyParameterFromQuery(Name = "name")] public string? PlayerName { get; set; }
     [SupplyParameterFromQuery(Name = "token")] public string? MyToken { get; set; }
 
-    private GameSession? session;
+    private GameSession? _session;
+    private PlayerState? _me;
+    private PlayerState? _opponent;
+
+    /// <summary>Card the player has clicked but not yet confirmed.</summary>
+    private int? _pendingId;
 
     protected override void OnInitialized()
     {
-        session = GameSessionService.GetSession(Code);
+        _session = GameSessionService.GetSession(Code);
+        if (_session is null) return;
+
+        _me       = _session.GetPlayer(MyToken ?? "");
+        _opponent = _session.GetOpponent(MyToken ?? "");
+
+        _session.StateChanged += OnSessionStateChanged;
+    }
+
+    /// <summary>
+    /// Invoked on a thread-pool thread when session state changes.
+    /// Marshals the UI update back to this component's Blazor circuit thread.
+    /// </summary>
+    private async void OnSessionStateChanged(object? sender, EventArgs e)
+    {
+        await InvokeAsync(() =>
+        {
+            _opponent = _session?.GetOpponent(MyToken ?? "");
+            StateHasChanged();
+        });
+    }
+
+    private void SetPending(int characterId) => _pendingId = characterId;
+
+    private void ClearPending() => _pendingId = null;
+
+    private void ConfirmSelection()
+    {
+        if (_pendingId.HasValue && MyToken is not null)
+            GameSessionService.SelectMysteryPerson(Code, MyToken, _pendingId.Value);
+    }
+
+    public void Dispose()
+    {
+        if (_session is not null)
+            _session.StateChanged -= OnSessionStateChanged;
     }
 }
