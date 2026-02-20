@@ -102,22 +102,112 @@ else if (_session.Phase == GamePhase.CharacterSelection && _me.MysteryPersonId.H
     </div>
 }
 
-@* ── Playing phase ─────────────────────────────────────────── *@
+@* ── Playing phase — full game board ───────────────────────── *@
 else if (_session.Phase == GamePhase.Playing)
 {
-    <div class="game-placeholder-page">
-        <div class="placeholder-card">
-            <h2>Round @_session.RoundNumber — Game On!</h2>
-            <div class="matchup">
-                <span class="player-name-tag">@_session.Player1?.Name</span>
-                <span class="vs-text">vs</span>
-                <span class="player-name-tag">@_session.Player2?.Name</span>
+    var myPerson = CharacterData.GetById(_me!.MysteryPersonId ?? 0);
+
+    <div class="game-board">
+
+        @* ════════════════════════════════════════════════════════
+           LEFT COLUMN — opponent board (top) + own board (bottom)
+           ════════════════════════════════════════════════════════ *@
+        <div class="game-left">
+
+            @* ── Opponent's board (top, sm cards, read-only) ─────── *@
+            <div class="board-section">
+                <div class="board-header">
+                    <span class="board-label">@(_opponent?.Name ?? "Opponent")'s Board</span>
+                    <span class="board-count">24 characters</span>
+                </div>
+                <div class="board-grid-area">
+                    <div class="board-grid board-grid--sm">
+                        @foreach (var charId in _opponent?.BoardOrder ?? [])
+                        {
+                            var localId = charId;
+                            var ch = CharacterData.GetById(localId);
+                            <FaceCard Character="ch"
+                                      Size="sm"
+                                      ShowName="true"
+                                      FaceDown="@(_opponent!.EliminatedIds.Contains(localId))" />
+                        }
+                    </div>
+                </div>
             </div>
-            <p class="iteration-note">
-                Both players have chosen their Mystery Person.
-                The full game board arrives in the next iteration!
-            </p>
-            <a href="/" class="btn btn-secondary">Back to Home</a>
+
+            <div class="board-divider"></div>
+
+            @* ── Own board (bottom, md cards) ────────────────────── *@
+            <div class="board-section board-section--own">
+                <div class="board-header">
+                    <span class="board-label">@_me!.Name's Board</span>
+                    <span class="board-count">Your cards</span>
+                </div>
+                <div class="board-grid-area">
+                    <div class="board-grid board-grid--md">
+                        @foreach (var charId in _me!.BoardOrder)
+                        {
+                            var localId = charId;
+                            var ch = CharacterData.GetById(localId);
+                            var isMystery = localId == _me!.MysteryPersonId;
+                            var isEliminated = _me!.EliminatedIds.Contains(localId);
+                            <FaceCard Character="ch"
+                                      Size="md"
+                                      ShowName="true"
+                                      IsMystery="@isMystery"
+                                      FaceDown="@isEliminated" />
+                        }
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        @* ════════════════════════════════════════════════════════
+           RIGHT COLUMN — score bar, mystery person, chat panel
+           ════════════════════════════════════════════════════════ *@
+        <div class="game-right">
+
+            @* ── Score & status bar ──────────────────────────────── *@
+            <div class="score-bar">
+                <div class="score-round">Round @_session.RoundNumber</div>
+                <div class="score-display">
+                    <span class="score-name">@_session.Player1?.Name</span>
+                    <span class="score-value">@_session.Player1?.RoundWins</span>
+                    <span class="score-dash">–</span>
+                    <span class="score-value">@_session.Player2?.RoundWins</span>
+                    <span class="score-name score-name--right">@_session.Player2?.Name</span>
+                </div>
+                <div class="turn-status">Game in progress…</div>
+            </div>
+
+            @* ── Mystery Person display ──────────────────────────── *@
+            <div class="mystery-panel">
+                <div class="mystery-label">Your Mystery Person</div>
+                @if (myPerson is not null)
+                {
+                    <div class="mystery-card-wrap">
+                        <FaceCard Character="myPerson" Size="lg" IsMystery="true" ShowName="true" />
+                    </div>
+                }
+                <div class="mystery-keep-secret">Keep this secret from your opponent!</div>
+            </div>
+
+            @* ── Chat panel ──────────────────────────────────────── *@
+            <div class="chat-panel">
+                <div class="chat-header">Chat</div>
+                <div class="chat-log">
+                    <p class="chat-placeholder">The game is afoot…</p>
+                </div>
+                <div class="chat-input-area">
+                    <input class="text-input chat-input"
+                           type="text"
+                           placeholder="Ask a yes/no question…"
+                           disabled />
+                    <button class="btn btn-primary chat-send-btn" disabled>Send</button>
+                </div>
+            </div>
+
         </div>
     </div>
 }

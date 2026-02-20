@@ -99,6 +99,270 @@
     font-size: 0.95rem;
 }
 
+/* ============================================================
+   Playing phase — two-column game board
+   Desktop landscape ≥1280×720. No page-level scroll.
+   ============================================================ */
+
+/* Root shell — fills the viewport, no overflow */
+.game-board {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    background: var(--bg-base);
+}
+
+/* ── Left column — both boards stacked vertically ──────────── */
+
+.game-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0; /* allow flex child to shrink below content size */
+}
+
+/* Each board section is a flex column with a scrollable grid area */
+.board-section {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* Opponent board (top): fixed ~40% of left-column height */
+.board-section:not(.board-section--own) {
+    flex: 0 0 40%;
+}
+
+/* Own board (bottom): takes all remaining vertical space */
+.board-section--own {
+    flex: 1;
+}
+
+/* 1px horizontal rule between the two boards */
+.board-divider {
+    flex-shrink: 0;
+    height: 1px;
+    background: var(--border-subtle);
+}
+
+/* Compact header bar above each board */
+.board-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 14px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.board-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+}
+
+.board-count {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+/* Scrollable area that holds the grid */
+.board-grid-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 14px;
+}
+
+/* Base grid — 6 fixed-width columns, centred in the container */
+.board-grid {
+    display: grid;
+    justify-content: center;
+    align-content: start;
+}
+
+/* sm cards: 72px art — give each column 78px so names don't overflow */
+.board-grid--sm {
+    grid-template-columns: repeat(6, 78px);
+    gap: 6px;
+}
+
+/* md cards: 100px art — give each column 108px */
+.board-grid--md {
+    grid-template-columns: repeat(6, 108px);
+    gap: 8px;
+}
+
+/* ── Right column ──────────────────────────────────────────── */
+
+.game-right {
+    width: 340px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-left: 1px solid var(--border-subtle);
+    background: var(--bg-surface);
+}
+
+/* ── Score & status bar ─────────────────────────────────────── */
+
+.score-bar {
+    flex-shrink: 0;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.score-round {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+}
+
+.score-display {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.score-name {
+    flex: 1;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.score-name--right {
+    text-align: right;
+}
+
+.score-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--accent-gold);
+    font-family: var(--font-mono);
+    min-width: 22px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.score-dash {
+    font-size: 1rem;
+    color: var(--text-muted);
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.turn-status {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* ── Mystery Person panel ───────────────────────────────────── */
+
+.mystery-panel {
+    flex-shrink: 0;
+    padding: 12px 16px 14px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.mystery-label {
+    align-self: stretch;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent-gold);
+}
+
+/* Centre the inline-flex FaceCard within the panel */
+.mystery-card-wrap {
+    display: flex;
+    justify-content: center;
+}
+
+.mystery-keep-secret {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* ── Chat panel ─────────────────────────────────────────────── */
+
+.chat-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.chat-header {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    padding: 9px 16px 7px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Scrollable message log — messages sit at the bottom */
+.chat-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.chat-placeholder {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+}
+
+/* Text input row at the foot of the chat panel */
+.chat-input-area {
+    flex-shrink: 0;
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.chat-input {
+    flex: 1;
+    font-size: 0.9rem;
+    padding: 0.5rem 0.75rem;
+}
+
+.chat-send-btn {
+    flex-shrink: 0;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+}
+
 /* ── Waiting Page ───────────────────────────────────────────── */
 
 .waiting-page {
