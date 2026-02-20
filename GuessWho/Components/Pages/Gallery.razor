@@ -1,0 +1,92 @@
+@page "/gallery"
+@rendermode InteractiveServer
+@using GuessWho.Models
+@using GuessWho.Data
+
+<PageTitle>Character Gallery | Guess Who?</PageTitle>
+
+<div class="gallery-page">
+
+    <header class="gallery-header">
+        <a href="/" class="back-link">← Home</a>
+        <h1 class="gallery-title">Character Gallery</h1>
+        <p class="gallery-subtitle">
+            All 24 characters rendered from attribute data — no external image assets.
+        </p>
+    </header>
+
+    @* ── Full character grid ──────────────────────────────────────────────── *@
+    <section class="gallery-section">
+        <div class="gallery-grid">
+            @foreach (var character in CharacterData.All)
+            {
+                <div class="gallery-item">
+                    <FaceCard Character="character" Size="md" />
+                    <ul class="gallery-attrs">
+                        <li class="attr-chip attr-hair" style="background: @HairBadgeColor(character.HairColor)">
+                            @(character.Bald ? "Bald" : $"{character.HairColor} {character.HairLength}")
+                        </li>
+                        <li class="attr-chip attr-eyes">@character.EyeColor eyes</li>
+                        @if (character.Glasses)   { <li class="attr-chip attr-glasses">Glasses</li> }
+                        @if (character.Hat)        { <li class="attr-chip attr-hat">Hat</li> }
+                        @if (character.FacialHair) { <li class="attr-chip attr-beard">Beard</li> }
+                        @if (character.RosyCheeks) { <li class="attr-chip attr-cheeks">Rosy</li> }
+                        @if (character.BigNose)    { <li class="attr-chip attr-nose">Big nose</li> }
+                    </ul>
+                </div>
+            }
+        </div>
+    </section>
+
+    @* ── Size comparison ─────────────────────────────────────────────────── *@
+    <section class="gallery-section">
+        <h2 class="gallery-section-title">Card Sizes</h2>
+        <p class="gallery-section-subtitle">Same character rendered at small (opponent grid), medium (own board), and large (Mystery Person) sizes.</p>
+        <div class="gallery-sizes">
+            <div class="gallery-size-demo">
+                <div class="gallery-size-label">Small (sm) — opponent grid</div>
+                <FaceCard Character="@CharacterData.All[5]" Size="sm" />
+            </div>
+            <div class="gallery-size-demo">
+                <div class="gallery-size-label">Medium (md) — own board</div>
+                <FaceCard Character="@CharacterData.All[5]" Size="md" />
+            </div>
+            <div class="gallery-size-demo">
+                <div class="gallery-size-label">Large (lg) — Mystery Person</div>
+                <FaceCard Character="@CharacterData.All[5]" Size="lg" IsMystery="true" />
+            </div>
+        </div>
+    </section>
+
+    @* ── Special states ──────────────────────────────────────────────────── *@
+    <section class="gallery-section">
+        <h2 class="gallery-section-title">Card States</h2>
+        <div class="gallery-states">
+            <div class="gallery-size-demo">
+                <div class="gallery-size-label">Normal</div>
+                <FaceCard Character="@CharacterData.All[0]" Size="md" />
+            </div>
+            <div class="gallery-size-demo">
+                <div class="gallery-size-label">Mystery Person</div>
+                <FaceCard Character="@CharacterData.All[0]" Size="md" IsMystery="true" />
+            </div>
+            <div class="gallery-size-demo">
+                <div class="gallery-size-label">Eliminated (face-down)</div>
+                <FaceCard Character="@CharacterData.All[0]" Size="md" FaceDown="true" />
+            </div>
+        </div>
+    </section>
+
+</div>
+
+@code {
+    private static string HairBadgeColor(HairColor color) => color switch
+    {
+        HairColor.Black  => "rgba(26,26,26,0.85)",
+        HairColor.Brown  => "rgba(107,58,31,0.75)",
+        HairColor.Blonde => "rgba(200,168,50,0.65)",
+        HairColor.Red    => "rgba(192,53,32,0.7)",
+        HairColor.White  => "rgba(120,120,120,0.6)",
+        _                => "rgba(80,80,80,0.6)"
+    };
+}

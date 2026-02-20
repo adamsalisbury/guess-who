@@ -1,0 +1,117 @@
+/* ============================================================
+   FaceCard — scoped component styles
+   Three size variants: sm (72px art), md (100px art), lg (148px art)
+   ============================================================ */
+
+/* ── Wrapper ── */
+.face-card {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    transition: transform 150ms ease, opacity 150ms ease, filter 150ms ease;
+    user-select: none;
+}
+
+/* ── Art container (holds SVG) ── */
+.face-card__art {
+    border-radius: 8px;
+    overflow: hidden;
+    background: #1c2128;
+    border: 2px solid #30363d;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+    line-height: 0; /* remove inline-block gap */
+}
+
+.face-card__art svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+/* ── Size variants ── */
+.face-card--sm .face-card__art {
+    width: 72px;
+    border-radius: 6px;
+    border-width: 1.5px;
+}
+
+.face-card--md .face-card__art {
+    width: 100px;
+}
+
+.face-card--lg .face-card__art {
+    width: 148px;
+    border-radius: 10px;
+    border-width: 2.5px;
+}
+
+/* ── Name label ── */
+.face-card__name {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #8b949e;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    transition: color 150ms ease;
+}
+
+.face-card--sm .face-card__name {
+    font-size: 0.6rem;
+}
+
+.face-card--md .face-card__name {
+    font-size: 0.68rem;
+}
+
+.face-card--lg .face-card__name {
+    font-size: 0.85rem;
+    color: #e6edf3;
+    font-weight: 700;
+}
+
+.face-card__name--faded {
+    opacity: 0.45;
+}
+
+/* ── Mystery Person — gold glow ── */
+.face-card--mystery .face-card__art {
+    border-color: #f0a500;
+    box-shadow: 0 0 14px rgba(240, 165, 0, 0.4);
+}
+
+.face-card--mystery .face-card__name {
+    color: #f0a500;
+}
+
+/* ── Face-down / eliminated ── */
+.face-card--down {
+    opacity: 0.38;
+    filter: grayscale(0.5);
+}
+
+.face-card--down .face-card__art {
+    border-color: #21262d;
+}
+
+/* ── Interactive (clickable) ── */
+.face-card[style*="cursor:pointer"]:hover .face-card__art {
+    border-color: #58a6ff;
+    box-shadow: 0 0 8px rgba(88, 166, 255, 0.25);
+}
+
+.face-card[style*="cursor:pointer"]:hover {
+    transform: translateY(-2px);
+}
+
+.face-card[style*="cursor:pointer"]:active {
+    transform: translateY(0);
+}
+
+/* ── Hover for non-mystery, non-down interactive cards ── */
+.face-card:not(.face-card--down):not(.face-card--mystery)[style*="cursor:pointer"]:hover .face-card__name {
+    color: #e6edf3;
+}

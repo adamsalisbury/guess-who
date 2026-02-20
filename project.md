@@ -22,9 +22,13 @@ GuessWho/                  ← solution root (also git repo root)
 │   │   ├── Pages/
 │   │   │   ├── Landing.razor    ← "/" — name entry, New/Join Game
 │   │   │   ├── Lobby.razor      ← "/lobby/{Code}" — wait for opponent
-│   │   │   └── Game.razor       ← "/game/{Code}" — main game board (placeholder)
+│   │   │   ├── Game.razor       ← "/game/{Code}" — main game board (placeholder)
+│   │   │   ├── Gallery.razor    ← "/gallery" — dev utility: all 24 face cards
+│   │   │   └── Gallery.razor.css
 │   │   ├── Layout/
 │   │   │   └── MainLayout.razor ← bare shell, no nav
+│   │   ├── FaceCard.razor       ← character face card SVG component
+│   │   ├── FaceCard.razor.css   ← scoped card styles (sm/md/lg sizes)
 │   │   ├── App.razor
 │   │   ├── Routes.razor
 │   │   └── _Imports.razor
@@ -60,12 +64,18 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 1)
+## Current state (after Iteration 2)
 - Landing page functional: name entry, New Game (creates session), Join Game (validates code, joins session)
 - Lobby page functional: both players shown by name, connection status, "Waiting for opponent…" / "Starting…"
 - Both players auto-navigate to `/game/{Code}` when lobby is full
 - Game page: placeholder (shows player names, no board yet)
 - 24 characters defined in `CharacterData.All` with all required attributes
+- **FaceCard component** (`Components/FaceCard.razor` + `.razor.css`): renders any character as an SVG face
+  card driven purely by attribute data — hair cap, long hair side panels, eye colour, nose size, rosy
+  cheeks, glasses, hat, facial hair (moustache + beard). Three sizes: `sm`, `md`, `lg`. States: normal,
+  mystery (gold glow), face-down (eliminated, dimmed X). Optional `OnClick` callback for interactivity.
+- **Gallery page** (`/gallery`): grid of all 24 cards in `md` size, attribute badge summary per card, size
+  comparison section, state comparison section. Development utility — no navigation link in the game UI.
 - Build: **0 errors, 0 warnings**
 
 ## Design decisions & known trade-offs

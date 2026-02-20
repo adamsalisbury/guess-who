@@ -1,0 +1,194 @@
+@using GuessWho.Models
+
+<div class="face-card face-card--@Size @(FaceDown ? "face-card--down" : "") @(IsMystery ? "face-card--mystery" : "")"
+     @onclick="HandleClick"
+     style="@(OnClick.HasDelegate ? "cursor:pointer" : "")">
+
+    <div class="face-card__art">
+        <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg"
+             aria-label="@(FaceDown ? "Eliminated character" : Character?.Name ?? "Unknown")">
+
+            @if (FaceDown || Character is null)
+            {
+                @* ── Face-down / eliminated state ─────────────────────────── *@
+                <rect x="4" y="4" width="92" height="112" rx="7" fill="#161b22" />
+                <rect x="8" y="8" width="84" height="104" rx="5" fill="#1c2128" />
+                @* Diagonal cross pattern *@
+                <line x1="28" y1="36" x2="72" y2="84" stroke="#30363d" stroke-width="2.5" stroke-linecap="round" />
+                <line x1="72" y1="36" x2="28" y2="84" stroke="#30363d" stroke-width="2.5" stroke-linecap="round" />
+            }
+            else
+            {
+                @* ── Long hair side panels (drawn first — behind face) ─────── *@
+                @if (!Character.Bald && Character.HairLength == HairLength.Long)
+                {
+                    <rect x="15" y="64" width="10" height="43" rx="5" fill="@HairFill" />
+                    <rect x="75" y="64" width="10" height="43" rx="5" fill="@HairFill" />
+                }
+
+                @* ── Hair cap (drawn before face so face covers lower part) ── *@
+                @if (!Character.Bald)
+                {
+                    <ellipse cx="50" cy="60" rx="35" ry="33" fill="@HairFill" />
+                }
+
+                @* ── Face oval ──────────────────────────────────────────────── *@
+                <ellipse cx="50" cy="73" rx="29" ry="34" fill="#f5c5a3" />
+
+                @* ── Ears ────────────────────────────────────────────────────── *@
+                <ellipse cx="21" cy="73" rx="4" ry="6" fill="#f0bca0" />
+                <ellipse cx="79" cy="73" rx="4" ry="6" fill="#f0bca0" />
+
+                @* ── Rosy cheeks ─────────────────────────────────────────────── *@
+                @if (Character.RosyCheeks)
+                {
+                    <ellipse cx="28" cy="80" rx="8" ry="4.5" fill="rgba(255,100,100,0.28)" />
+                    <ellipse cx="72" cy="80" rx="8" ry="4.5" fill="rgba(255,100,100,0.28)" />
+                }
+
+                @* ── Eyebrows ────────────────────────────────────────────────── *@
+                <path d="M 31 63 Q 37 60 43 62" stroke="@BrowFill" stroke-width="1.8" fill="none" stroke-linecap="round" />
+                <path d="M 57 62 Q 63 60 69 63" stroke="@BrowFill" stroke-width="1.8" fill="none" stroke-linecap="round" />
+
+                @* ── Eye whites ──────────────────────────────────────────────── *@
+                <ellipse cx="37" cy="68" rx="5.5" ry="4.5" fill="white" />
+                <ellipse cx="63" cy="68" rx="5.5" ry="4.5" fill="white" />
+
+                @* ── Irises ──────────────────────────────────────────────────── *@
+                <circle cx="37" cy="68" r="3.2" fill="@EyeFill" />
+                <circle cx="63" cy="68" r="3.2" fill="@EyeFill" />
+
+                @* ── Pupils ──────────────────────────────────────────────────── *@
+                <circle cx="37" cy="68" r="1.6" fill="#0d0d0d" />
+                <circle cx="63" cy="68" r="1.6" fill="#0d0d0d" />
+
+                @* ── Eye highlights ──────────────────────────────────────────── *@
+                <circle cx="38.5" cy="66.5" r="0.9" fill="white" />
+                <circle cx="64.5" cy="66.5" r="0.9" fill="white" />
+
+                @* ── Nose ────────────────────────────────────────────────────── *@
+                @if (Character.BigNose)
+                {
+                    @* Prominent curved nose *@
+                    <path d="M 43 78 Q 50 88 57 78" stroke="#c09080" stroke-width="1.5" fill="none" stroke-linecap="round" />
+                    <ellipse cx="50" cy="82" rx="5.5" ry="3.5" fill="rgba(180,120,80,0.18)" />
+                }
+                else
+                {
+                    <path d="M 47 79 Q 50 83 53 79" stroke="#c09080" stroke-width="1.2" fill="none" stroke-linecap="round" />
+                }
+
+                @* ── Mouth (skip if facial hair — beard covers it) ───────────── *@
+                @if (!Character.FacialHair)
+                {
+                    <path d="M 43 93 Q 50 99 57 93" stroke="#b07070" stroke-width="1.5" fill="none" stroke-linecap="round" />
+                }
+
+                @* ── Facial hair (moustache + beard) ────────────────────────── *@
+                @if (Character.FacialHair)
+                {
+                    @* Moustache — two-bump shape *@
+                    <path d="M 44 87 Q 47 92 50 90 Q 53 92 56 87 Q 53 85 50 86 Q 47 85 44 87 Z"
+                          fill="@FacialHairFill" />
+                    @* Beard — covers lower face *@
+                    <ellipse cx="50" cy="101" rx="14" ry="9" fill="@FacialHairFill" opacity="0.9" />
+                }
+
+                @* ── Glasses ─────────────────────────────────────────────────── *@
+                @if (Character.Glasses)
+                {
+                    @* Left lens *@
+                    <rect x="26" y="63" width="18" height="12" rx="4"
+                          fill="rgba(180,220,255,0.12)" stroke="#9ab3c8" stroke-width="1.5" />
+                    @* Right lens *@
+                    <rect x="56" y="63" width="18" height="12" rx="4"
+                          fill="rgba(180,220,255,0.12)" stroke="#9ab3c8" stroke-width="1.5" />
+                    @* Bridge *@
+                    <line x1="44" y1="69" x2="56" y2="69" stroke="#9ab3c8" stroke-width="1.5" />
+                    @* Arms *@
+                    <line x1="26" y1="68" x2="19" y2="67" stroke="#9ab3c8" stroke-width="1.5" />
+                    <line x1="74" y1="68" x2="81" y2="67" stroke="#9ab3c8" stroke-width="1.5" />
+                }
+
+                @* ── Hat (drawn last — sits on top of hair) ──────────────────── *@
+                @if (Character.Hat)
+                {
+                    @* Crown *@
+                    <rect x="26" y="14" width="48" height="31" rx="5" fill="#2a2a2a" />
+                    @* Decorative band *@
+                    <rect x="26" y="40" width="48" height="5" fill="#c05a10" />
+                    @* Brim *@
+                    <rect x="13" y="43" width="74" height="9" rx="4" fill="#2a2a2a" />
+                }
+            }
+        </svg>
+    </div>
+
+    @if (ShowName)
+    {
+        <div class="face-card__name @(FaceDown ? "face-card__name--faded" : "")">
+            @(Character?.Name ?? "—")
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>The character to render. Null or FaceDown=true renders the eliminated state.</summary>
+    [Parameter, EditorRequired] public Character? Character { get; set; }
+
+    /// <summary>When true, renders the face-down (eliminated) visual regardless of Character.</summary>
+    [Parameter] public bool FaceDown { get; set; } = false;
+
+    /// <summary>When true, adds a gold border glow indicating this is the Mystery Person.</summary>
+    [Parameter] public bool IsMystery { get; set; } = false;
+
+    /// <summary>Card size: "sm" (80px), "md" (110px), "lg" (150px).</summary>
+    [Parameter] public string Size { get; set; } = "md";
+
+    /// <summary>When true, shows the character name below the card.</summary>
+    [Parameter] public bool ShowName { get; set; } = true;
+
+    /// <summary>Optional click handler. When set, card becomes interactive (pointer cursor).</summary>
+    [Parameter] public EventCallback<Character?> OnClick { get; set; }
+
+    private Task HandleClick() => OnClick.HasDelegate ? OnClick.InvokeAsync(Character) : Task.CompletedTask;
+
+    // ── Colour helpers ──────────────────────────────────────────────────────
+
+    private string HairFill => Character?.HairColor switch
+    {
+        HairColor.Black  => "#1a1a1a",
+        HairColor.Brown  => "#6b3a1f",
+        HairColor.Blonde => "#e8c840",
+        HairColor.Red    => "#c03520",
+        HairColor.White  => "#d8d8d8",
+        _                => "#6b3a1f"
+    };
+
+    private string EyeFill => Character?.EyeColor switch
+    {
+        EyeColor.Blue  => "#3a8fd4",
+        EyeColor.Brown => "#7b4f2e",
+        _              => "#3a8fd4"
+    };
+
+    private string BrowFill => Character?.HairColor switch
+    {
+        HairColor.Black  => "#111",
+        HairColor.Brown  => "#4a2a0a",
+        HairColor.Blonde => "#b08020",
+        HairColor.Red    => "#8b2a0a",
+        HairColor.White  => "#888",
+        _                => "#4a2a0a"
+    };
+
+    private string FacialHairFill => Character?.HairColor switch
+    {
+        HairColor.Black  => "#1a1a1a",
+        HairColor.Brown  => "#4a2a0a",
+        HairColor.Blonde => "#c09030",
+        HairColor.Red    => "#8b2a0a",
+        HairColor.White  => "#b0b0b0",
+        _                => "#4a2a0a"
+    };
+}
