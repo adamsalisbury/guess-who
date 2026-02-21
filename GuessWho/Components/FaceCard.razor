@@ -12,115 +12,142 @@
 
             @if (FaceDown || Character is null)
             {
-                @* ── Face-down / eliminated state ─────────────────────────── *@
+                @* ── Face-down / eliminated state ────────────────────────────── *@
                 <rect x="4" y="4" width="92" height="112" rx="7" fill="#161b22" />
                 <rect x="8" y="8" width="84" height="104" rx="5" fill="#1c2128" />
-                @* Diagonal cross pattern *@
                 <line x1="28" y1="36" x2="72" y2="84" stroke="#30363d" stroke-width="2.5" stroke-linecap="round" />
                 <line x1="72" y1="36" x2="28" y2="84" stroke="#30363d" stroke-width="2.5" stroke-linecap="round" />
             }
             else
             {
-                @* ── Long hair side panels (drawn first — behind face) ─────── *@
+                @* ── Card background (skin-tinted, per character) ────────────── *@
+                <rect x="0" y="0" width="100" height="120" fill="@CardBgColor" />
+
+                @* ── Long hair side panels (behind face) ─────────────────────── *@
                 @if (!Character.Bald && Character.HairLength == HairLength.Long)
                 {
-                    <rect x="15" y="64" width="10" height="43" rx="5" fill="@HairFill" />
-                    <rect x="75" y="64" width="10" height="43" rx="5" fill="@HairFill" />
+                    <path d="M 14 66 Q 12 92 16 110 Q 19 116 24 112 Q 22 94 22 66 Z" fill="@HairFill" />
+                    <path d="M 86 66 Q 88 92 84 110 Q 81 116 76 112 Q 78 94 78 66 Z" fill="@HairFill" />
+                    <path d="M 15 70 Q 14 92 16 108" stroke="@HairSheen" stroke-width="1.5" fill="none" opacity="0.5" stroke-linecap="round" />
+                    <path d="M 85 70 Q 86 92 84 108" stroke="@HairSheen" stroke-width="1.5" fill="none" opacity="0.5" stroke-linecap="round" />
                 }
 
-                @* ── Hair cap (drawn before face so face covers lower part) ── *@
+                @* ── Hair cap (behind face) ───────────────────────────────────── *@
                 @if (!Character.Bald)
                 {
                     <ellipse cx="50" cy="60" rx="35" ry="33" fill="@HairFill" />
+                    <path d="M 28 50 Q 50 38 72 50" stroke="@HairSheen" stroke-width="2.5" fill="none" opacity="0.4" stroke-linecap="round" />
+                    @if (Character.HairLength == HairLength.Short)
+                    {
+                        <ellipse cx="18" cy="66" rx="5" ry="7" fill="@HairFill" />
+                        <ellipse cx="82" cy="66" rx="5" ry="7" fill="@HairFill" />
+                    }
                 }
 
-                @* ── Face oval ──────────────────────────────────────────────── *@
-                <ellipse cx="50" cy="73" rx="29" ry="34" fill="#f5c5a3" />
+                @* ── Face oval ────────────────────────────────────────────────── *@
+                <ellipse cx="50" cy="73" rx="29" ry="34" fill="@SkinFill" />
 
-                @* ── Ears ────────────────────────────────────────────────────── *@
-                <ellipse cx="21" cy="73" rx="4" ry="6" fill="#f0bca0" />
-                <ellipse cx="79" cy="73" rx="4" ry="6" fill="#f0bca0" />
+                @* ── Neck (drawn after face so it blends seamlessly) ─────────── *@
+                <rect x="42" y="103" width="16" height="17" rx="4" fill="@SkinFill" />
 
-                @* ── Rosy cheeks ─────────────────────────────────────────────── *@
+                @* ── Ears + inner ear detail ──────────────────────────────────── *@
+                <ellipse cx="21" cy="73" rx="4" ry="6" fill="@SkinShadow" />
+                <ellipse cx="79" cy="73" rx="4" ry="6" fill="@SkinShadow" />
+                <ellipse cx="21" cy="73" rx="2" ry="3.2" fill="@SkinFill" opacity="0.6" />
+                <ellipse cx="79" cy="73" rx="2" ry="3.2" fill="@SkinFill" opacity="0.6" />
+
+                @* ── Rosy cheeks ──────────────────────────────────────────────── *@
                 @if (Character.RosyCheeks)
                 {
-                    <ellipse cx="28" cy="80" rx="8" ry="4.5" fill="rgba(255,100,100,0.28)" />
-                    <ellipse cx="72" cy="80" rx="8" ry="4.5" fill="rgba(255,100,100,0.28)" />
+                    <ellipse cx="28" cy="80" rx="9" ry="5" fill="rgba(255,100,100,0.2)" />
+                    <ellipse cx="72" cy="80" rx="9" ry="5" fill="rgba(255,100,100,0.2)" />
+                    <ellipse cx="27" cy="79" rx="5" ry="3" fill="rgba(255,180,150,0.2)" />
+                    <ellipse cx="71" cy="79" rx="5" ry="3" fill="rgba(255,180,150,0.2)" />
                 }
 
-                @* ── Eyebrows ────────────────────────────────────────────────── *@
-                <path d="M 31 63 Q 37 60 43 62" stroke="@BrowFill" stroke-width="1.8" fill="none" stroke-linecap="round" />
-                <path d="M 57 62 Q 63 60 69 63" stroke="@BrowFill" stroke-width="1.8" fill="none" stroke-linecap="round" />
+                @* ── Eyebrows ─────────────────────────────────────────────────── *@
+                <path d="M 31 63 Q 37 60 43 62" stroke="@BrowFill" stroke-width="2.2" fill="none" stroke-linecap="round" />
+                <path d="M 57 62 Q 63 60 69 63" stroke="@BrowFill" stroke-width="2.2" fill="none" stroke-linecap="round" />
 
-                @* ── Eye whites ──────────────────────────────────────────────── *@
+                @* ── Eye whites ───────────────────────────────────────────────── *@
                 <ellipse cx="37" cy="68" rx="5.5" ry="4.5" fill="white" />
                 <ellipse cx="63" cy="68" rx="5.5" ry="4.5" fill="white" />
 
-                @* ── Irises ──────────────────────────────────────────────────── *@
+                @* ── Irises ───────────────────────────────────────────────────── *@
                 <circle cx="37" cy="68" r="3.2" fill="@EyeFill" />
                 <circle cx="63" cy="68" r="3.2" fill="@EyeFill" />
 
-                @* ── Pupils ──────────────────────────────────────────────────── *@
+                @* ── Pupils ───────────────────────────────────────────────────── *@
                 <circle cx="37" cy="68" r="1.6" fill="#0d0d0d" />
                 <circle cx="63" cy="68" r="1.6" fill="#0d0d0d" />
 
-                @* ── Eye highlights ──────────────────────────────────────────── *@
+                @* ── Eye highlights ───────────────────────────────────────────── *@
                 <circle cx="38.5" cy="66.5" r="0.9" fill="white" />
                 <circle cx="64.5" cy="66.5" r="0.9" fill="white" />
 
-                @* ── Nose ────────────────────────────────────────────────────── *@
+                @* ── Nose ─────────────────────────────────────────────────────── *@
                 @if (Character.BigNose)
                 {
-                    @* Prominent curved nose *@
-                    <path d="M 43 78 Q 50 88 57 78" stroke="#c09080" stroke-width="1.5" fill="none" stroke-linecap="round" />
-                    <ellipse cx="50" cy="82" rx="5.5" ry="3.5" fill="rgba(180,120,80,0.18)" />
+                    <path d="M 41 76 Q 50 90 59 76" stroke="@SkinNose" stroke-width="1.8" fill="none" stroke-linecap="round" />
+                    <circle cx="45" cy="85" r="2.5" fill="@SkinNose" opacity="0.45" />
+                    <circle cx="55" cy="85" r="2.5" fill="@SkinNose" opacity="0.45" />
+                    <circle cx="45" cy="85" r="1.2" fill="rgba(0,0,0,0.3)" />
+                    <circle cx="55" cy="85" r="1.2" fill="rgba(0,0,0,0.3)" />
                 }
                 else
                 {
-                    <path d="M 47 79 Q 50 83 53 79" stroke="#c09080" stroke-width="1.2" fill="none" stroke-linecap="round" />
+                    <path d="M 47 79 Q 50 83 53 79" stroke="@SkinNose" stroke-width="1.2" fill="none" stroke-linecap="round" />
                 }
 
-                @* ── Mouth (skip if facial hair — beard covers it) ───────────── *@
-                @if (!Character.FacialHair)
+                @* ── Mouth (hidden when full beard covers chin) ───────────────── *@
+                @if (!Character.FacialHair || !HasBeard)
                 {
                     <path d="M 43 93 Q 50 99 57 93" stroke="#b07070" stroke-width="1.5" fill="none" stroke-linecap="round" />
+                    <path d="M 46 92 Q 50 90.5 54 92" stroke="rgba(255,200,180,0.4)" stroke-width="0.9" fill="none" stroke-linecap="round" />
                 }
 
-                @* ── Facial hair (moustache + beard) ────────────────────────── *@
+                @* ── Facial hair ──────────────────────────────────────────────── *@
                 @if (Character.FacialHair)
                 {
-                    @* Moustache — two-bump shape *@
                     <path d="M 44 87 Q 47 92 50 90 Q 53 92 56 87 Q 53 85 50 86 Q 47 85 44 87 Z"
                           fill="@FacialHairFill" />
-                    @* Beard — covers lower face *@
-                    <ellipse cx="50" cy="101" rx="14" ry="9" fill="@FacialHairFill" opacity="0.9" />
+                    @if (HasBeard)
+                    {
+                        <path d="M 38 92 Q 33 102 35 111 Q 43 117 50 117 Q 57 117 65 111 Q 67 102 62 92 Q 56 98 50 98 Q 44 98 38 92 Z"
+                              fill="@FacialHairFill" opacity="0.92" />
+                    }
                 }
 
-                @* ── Glasses ─────────────────────────────────────────────────── *@
+                @* ── Glasses ──────────────────────────────────────────────────── *@
                 @if (Character.Glasses)
                 {
-                    @* Left lens *@
                     <rect x="26" y="63" width="18" height="12" rx="4"
                           fill="rgba(180,220,255,0.12)" stroke="#9ab3c8" stroke-width="1.5" />
-                    @* Right lens *@
                     <rect x="56" y="63" width="18" height="12" rx="4"
                           fill="rgba(180,220,255,0.12)" stroke="#9ab3c8" stroke-width="1.5" />
-                    @* Bridge *@
                     <line x1="44" y1="69" x2="56" y2="69" stroke="#9ab3c8" stroke-width="1.5" />
-                    @* Arms *@
                     <line x1="26" y1="68" x2="19" y2="67" stroke="#9ab3c8" stroke-width="1.5" />
                     <line x1="74" y1="68" x2="81" y2="67" stroke="#9ab3c8" stroke-width="1.5" />
+                    <line x1="29" y1="65" x2="31" y2="67" stroke="rgba(255,255,255,0.35)" stroke-width="1" stroke-linecap="round" />
+                    <line x1="59" y1="65" x2="61" y2="67" stroke="rgba(255,255,255,0.35)" stroke-width="1" stroke-linecap="round" />
                 }
 
-                @* ── Hat (drawn last — sits on top of hair) ──────────────────── *@
+                @* ── Hat (topmost layer — covers hair) ───────────────────────── *@
                 @if (Character.Hat)
                 {
-                    @* Crown *@
-                    <rect x="26" y="14" width="48" height="31" rx="5" fill="#2a2a2a" />
-                    @* Decorative band *@
-                    <rect x="26" y="40" width="48" height="5" fill="#c05a10" />
-                    @* Brim *@
-                    <rect x="13" y="43" width="74" height="9" rx="4" fill="#2a2a2a" />
+                    @if (HasFedora)
+                    {
+                        <rect x="26" y="14" width="48" height="31" rx="5" fill="#2a2a2a" />
+                        <rect x="26" y="40" width="48" height="5" fill="#c05a10" />
+                        <rect x="13" y="43" width="74" height="9" rx="4" fill="#2a2a2a" />
+                        <line x1="15" y1="44" x2="85" y2="44" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+                    }
+                    else
+                    {
+                        <ellipse cx="50" cy="32" rx="32" ry="20" fill="@CapFill" />
+                        <rect x="18" y="43" width="64" height="8" rx="3" fill="@CapBand" />
+                        <path d="M 28 28 Q 50 18 72 28" stroke="rgba(255,255,255,0.15)" stroke-width="2" fill="none" stroke-linecap="round" />
+                    }
                 }
             }
         </svg>
@@ -144,7 +171,7 @@
     /// <summary>When true, adds a gold border glow indicating this is the Mystery Person.</summary>
     [Parameter] public bool IsMystery { get; set; } = false;
 
-    /// <summary>Card size: "sm" (80px), "md" (110px), "lg" (150px).</summary>
+    /// <summary>Card size: "sm" (72px art), "md" (100px art), "lg" (148px art).</summary>
     [Parameter] public string Size { get; set; } = "md";
 
     /// <summary>When true, shows the character name below the card.</summary>
@@ -167,7 +194,42 @@
 
     private Task HandleClick() => OnClick.HasDelegate ? OnClick.InvokeAsync(Character) : Task.CompletedTask;
 
-    // ── Colour helpers ──────────────────────────────────────────────────────
+    // ── Skin tone (Id % 3: 0 = light warm, 1 = medium, 2 = deeper warm) ─────
+
+    /// <summary>0, 1, or 2 — used to select skin-tone colour variants.</summary>
+    private int SkinTone => (Character?.Id ?? 0) % 3;
+
+    private string SkinFill => SkinTone switch
+    {
+        0 => "#f5c5a3",
+        1 => "#e0a878",
+        _ => "#c47845"
+    };
+
+    private string SkinShadow => SkinTone switch
+    {
+        0 => "#e8aa87",
+        1 => "#c88a5a",
+        _ => "#a86030"
+    };
+
+    /// <summary>Nose bridge and nostril shading colour, darker than skin fill.</summary>
+    private string SkinNose => SkinTone switch
+    {
+        0 => "#c09080",
+        1 => "#9a6840",
+        _ => "#7a4828"
+    };
+
+    /// <summary>Subtle background tint that reinforces each character's skin-tone palette.</summary>
+    private string CardBgColor => SkinTone switch
+    {
+        0 => "#1e2535",   // cool blue-grey for light skin
+        1 => "#1e2820",   // warm green-grey for medium skin
+        _ => "#282018"    // warm amber-grey for deeper skin
+    };
+
+    // ── Hair colours ─────────────────────────────────────────────────────────
 
     private string HairFill => Character?.HairColor switch
     {
@@ -177,6 +239,17 @@
         HairColor.Red    => "#c03520",
         HairColor.White  => "#d8d8d8",
         _                => "#6b3a1f"
+    };
+
+    /// <summary>Lighter sheen colour applied as a highlight arc on the hair cap.</summary>
+    private string HairSheen => Character?.HairColor switch
+    {
+        HairColor.Black  => "#404040",
+        HairColor.Brown  => "#a06030",
+        HairColor.Blonde => "#f8e890",
+        HairColor.Red    => "#e06050",
+        HairColor.White  => "#f0f0f0",
+        _                => "#a06030"
     };
 
     private string EyeFill => Character?.EyeColor switch
@@ -204,5 +277,39 @@
         HairColor.Red    => "#8b2a0a",
         HairColor.White  => "#b0b0b0",
         _                => "#4a2a0a"
+    };
+
+    // ── Hat / facial-hair style variants ─────────────────────────────────────
+
+    /// <summary>
+    /// Black-haired and brown-haired characters with facial hair get a full beard + moustache.
+    /// Others (white, red, blonde) get a moustache only.
+    /// </summary>
+    private bool HasBeard => Character?.FacialHair == true
+        && (Character.HairColor == HairColor.Black || Character.HairColor == HairColor.Brown);
+
+    /// <summary>Even-Id characters wear a fedora; odd-Id characters wear a rounded cap.</summary>
+    private bool HasFedora => (Character?.Id ?? 0) % 2 == 0;
+
+    /// <summary>Cap body fill — colour chosen to complement the character's hair colour.</summary>
+    private string CapFill => Character?.HairColor switch
+    {
+        HairColor.Black  => "#1e3a5a",   // navy
+        HairColor.Brown  => "#3a1e10",   // dark chestnut
+        HairColor.Blonde => "#1e4828",   // forest green
+        HairColor.Red    => "#5a1e10",   // dark crimson
+        HairColor.White  => "#2a2040",   // deep indigo
+        _                => "#2a3a50"
+    };
+
+    /// <summary>Cap band — one shade darker than CapFill for visual separation.</summary>
+    private string CapBand => Character?.HairColor switch
+    {
+        HairColor.Black  => "#162840",
+        HairColor.Brown  => "#2a1408",
+        HairColor.Blonde => "#1e3810",
+        HairColor.Red    => "#401408",
+        HairColor.White  => "#201e38",
+        _                => "#1e2a40"
     };
 }
