@@ -1,5 +1,51 @@
 # Guess Who? — Completed Work Log
 
+## Iteration 11 — Chat log readability
+**Completed**: 2026-02-21
+
+### What was done
+
+#### Game.razor — chat log rendering
+- Replaced the simple `@foreach` message loop with a richer rendering driven by `GetChatEntries()`.
+- `GetChatEntries()` annotates each `ChatMessage` with a `TurnNumber` (1-based count of `Question`
+  messages seen so far; shared by Q and the A that follows it). Computed once per render pass — no
+  stateful counter in Razor markup.
+- `ChatEntry` is a private `sealed record` inside the component's `@code` block.
+- **Turn boundary dividers**: before every `Question` message after the first, a
+  `<div class="chat-turn-divider">` is rendered. It shows "Turn N" as a centred label flanked by
+  two `::before`/`::after` horizontal rules. Purely client-side — no server changes needed.
+- **Question bubble**: header row shows sender name (left, gold uppercase) + compact turn tag
+  `T1 / T2 / …` (right, dim gold mono). Text below. `border-radius: 2px 8px 8px 8px` gives a
+  subtle top-left notch that implies a left-pointing tail.
+- **Answer bubble**: large bold "Yes" / "No" (`1.5rem`, 900 weight, green) on top; sender name
+  (small, green, centred) below. Right-aligned. `border-radius: 8px 2px 8px 8px` — mirrored notch.
+- **System messages**: pill-shaped (`border-radius: 999px`), very subtle border, muted italic text.
+  No sender label shown — system events speak for themselves.
+
+#### Game.razor.css — new/updated rules
+- **New**: `.chat-turn-divider`, `.chat-turn-divider::before`/`::after`, `.chat-turn-label` —
+  the "Turn N" horizontal-rule separator.
+- **New**: `.chat-msg-header` — flex header for Q bubble (sender left, turn tag right).
+- **New**: `.chat-msg-turn-tag` — dim gold mono "T1" label.
+- **Updated**: `.chat-msg--question` — gold border + tint, flat top-left corner, `max-width: 94%`.
+- **Updated**: `.chat-msg--answer` — green border + tint, flat top-right corner, `max-width: 50%`,
+  centred padding.
+- **New**: `.chat-msg-answer-text` — `1.5rem / 900 weight` Yes/No in green.
+- **Updated**: `.chat-msg--system` — pill shape, near-invisible border, muted italic.
+- **Updated**: `.chat-msg-sender` — `display: block` added; answer sender now `0.63rem` centred.
+- **Updated**: `.chat-msg--system .chat-msg-text` — scoped muted colour rule.
+
+- Build result: **0 errors, 0 warnings**.
+
+### Notes
+- `GetChatEntries()` runs O(n) over the chat log (max ~24–50 entries per round) — negligible cost.
+- `TurnNumber` for `Answer` and `System` messages reflects the current question count at the time
+  the message was added (i.e. the turn whose question was just answered). This is fine for display
+  — answers and dividers are associated with the correct exchange.
+- No server-side `ChatMessage` model changes were made; all annotations are UI-layer only.
+
+---
+
 ## Iteration 10 — End-of-round overlay consensus & post-game flow
 **Completed**: 2026-02-21
 

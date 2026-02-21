@@ -64,7 +64,7 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 10)
+## Current state (after Iteration 11)
 - Landing page functional: name entry, New Game (creates session), Join Game (validates code, joins session)
 - Lobby page functional: both players shown by name, connection status, auto-navigation to game page
 - Both players auto-navigate to `/game/{Code}` when lobby is full
@@ -79,12 +79,18 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
     - **Score bar**: Round number, championship score ("Alex 0 – 0 Bernard"), named turn indicator
       ("Your turn, [name]" gold/pulsing dot | "Waiting for [opponent]…" muted italic)
     - **Mystery Person panel**: `lg` FaceCard with gold glow, "Your Mystery Person" label, keep-secret hint
-    - **Chat panel** (Iteration 6): live message log with per-kind styling; chat input area has 5 states:
+    - **Chat panel** (Iteration 6, polished in Iteration 11): live message log; chat input area has 5 states:
       1. Active, no question, not guess mode → input + "🎯 Make a Guess Instead" button
       2. Active, no question, guess mode active, no pending → blue hint + "Cancel Guess Mode"
       3. Active, no question, guess mode active, pending card → confirmation panel + Confirm/Cancel
       4. Active, question asked → locked (Awaiting answer / Countdown / "end your turn")
       5. Inactive pending answer → Yes/No buttons; Inactive waiting → disabled input
+- **Chat log readability** (Iteration 11): distinct visual treatment per message kind:
+  - Question: gold bubble (flat top-left corner), sender name + turn tag header, question text below
+  - Answer: green bubble (flat top-right corner), large bold "Yes"/"No" + small sender name
+  - System: pill-shaped, muted italic, no sender label
+  - Turn dividers: "Turn N" centred label flanked by horizontal rules, before every Q after the first
+  - `ChatEntry` record + `GetChatEntries()` helper pre-computes turn numbers before Razor rendering
 - **Turn management** (Iteration 5): `GameSession.ActivePlayerToken`, `QuestionAsked`, `AwaitingAnswer` drive all turn-state logic
 - **Guessing mechanic** (Iteration 9):
   - Active player clicks "🎯 Make a Guess Instead" → enters guess mode (blue hover on opponent's face-up cards)

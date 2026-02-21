@@ -409,58 +409,137 @@
     text-align: center;
 }
 
+/* ── Turn boundary dividers ─────────────────────────────────── */
+
+/* Horizontal rule with centred "Turn N" label inserted before each new question */
+.chat-turn-divider {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 10px 0 4px;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.chat-turn-divider::before,
+.chat-turn-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-subtle);
+}
+
+.chat-turn-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
 /* ── Chat messages ──────────────────────────────────────────── */
 
 .chat-msg {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 7px 10px;
+    gap: 3px;
+    padding: 7px 11px;
     border-radius: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 5px;
     line-height: 1.4;
     animation: popIn 150ms ease;
 }
 
-/* Question — asked by active player; left-leaning, accent tint */
+/* Question — gold bubble, left-aligned, flat top-left corner suggests a left tail */
 .chat-msg--question {
-    background: rgba(240, 165, 0, 0.08);
+    background: rgba(240, 165, 0, 0.09);
+    border: 1px solid rgba(240, 165, 0, 0.22);
     border-left: 3px solid var(--accent-gold);
+    border-radius: 2px 8px 8px 8px;
     align-self: flex-start;
-    max-width: 95%;
+    max-width: 94%;
 }
 
-/* Answer — replied by inactive player; right-leaning, green tint */
+/* Header row: sender name (left) + turn tag (right) */
+.chat-msg-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 1px;
+}
+
+/* Small "T1", "T2" turn tag — subtle, top-right of each question bubble */
+.chat-msg-turn-tag {
+    font-size: 0.58rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    letter-spacing: 0.05em;
+    color: rgba(240, 165, 0, 0.45);
+    flex-shrink: 0;
+}
+
+/* Answer — green bubble, right-aligned, flat top-right corner suggests a right tail */
 .chat-msg--answer {
-    background: rgba(63, 185, 80, 0.1);
+    background: rgba(63, 185, 80, 0.09);
+    border: 1px solid rgba(63, 185, 80, 0.22);
     border-right: 3px solid var(--accent-green);
+    border-radius: 8px 2px 8px 8px;
     align-self: flex-end;
-    max-width: 70%;
-    text-align: right;
+    max-width: 50%;
+    text-align: center;
+    padding: 9px 18px 7px;
 }
 
-/* System events — centred, muted */
+/* Large bold "Yes" / "No" — immediately scannable at a glance */
+.chat-msg-answer-text {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: var(--accent-green);
+    line-height: 1;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+}
+
+/* System events — pill-shaped, centred, very muted */
 .chat-msg--system {
-    background: transparent;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 999px;
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: 0.73rem;
     font-style: italic;
     align-self: center;
     text-align: center;
-    padding: 3px 8px;
-    border-radius: 4px;
+    padding: 3px 14px;
+    max-width: 92%;
+    gap: 0;
 }
 
+/* Sender name */
 .chat-msg-sender {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 700;
     color: var(--accent-gold);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    display: block;
 }
 
+/* Answer sender is green and centred beneath the Yes/No */
 .chat-msg--answer .chat-msg-sender {
     color: var(--accent-green);
+    font-size: 0.63rem;
+}
+
+/* System messages don't show a sender label, just the text */
+.chat-msg--system .chat-msg-text {
+    color: var(--text-muted);
+    font-size: 0.73rem;
 }
 
 .chat-msg-text {
