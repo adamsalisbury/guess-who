@@ -13,3 +13,5 @@ public enum JoinResult { Success, NotFound, Full, AlreadyJoined }
 public enum ChatMessageKind { Question, Answer, System }
 
 public enum RoundEndReason { CorrectGuess, WrongGuess }
+
+public enum PostRoundDecision { NewRound, EndGame }

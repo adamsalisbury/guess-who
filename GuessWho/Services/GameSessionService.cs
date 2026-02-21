@@ -106,18 +106,12 @@ public sealed class GameSessionService
         GetSession(code)?.MakeGuess(playerToken, characterId);
 
     /// <summary>
-    /// Resets per-round state and begins a new round in the CharacterSelection phase.
+    /// Records a player's post-round decision (NewRound or EndGame).
+    /// If both players choose the same option it executes immediately; otherwise waits up to 60 seconds.
     /// No-ops if the session is not found, caller is not a participant, or phase is not RoundEnd.
     /// </summary>
-    public void StartNewRound(string code, string playerToken) =>
-        GetSession(code)?.StartNewRound(playerToken);
-
-    /// <summary>
-    /// Ends the game session and signals both players to return to the landing page.
-    /// No-ops if the session is not found, caller is not a participant, or phase is not RoundEnd.
-    /// </summary>
-    public void EndGame(string code, string playerToken) =>
-        GetSession(code)?.EndGame(playerToken);
+    public void MakePostRoundDecision(string code, string playerToken, PostRoundDecision decision) =>
+        GetSession(code)?.MakePostRoundDecision(playerToken, decision);
 
     /// <summary>Removes sessions that are empty or abandoned (no players for > 2 hours).</summary>
     public void RemoveSession(string code) =>

@@ -10,6 +10,9 @@ public sealed class GameSession
 {
     private readonly object _lock = new();
 
+    /// <summary>Number of round wins required to win the match.</summary>
+    private const int WinsToWin = 5;
+
     public required string Code { get; init; }
     public PlayerState? Player1 { get; private set; }
     public PlayerState? Player2 { get; private set; }
@@ -39,6 +42,15 @@ public sealed class GameSession
     public string? RoundWinnerToken { get; private set; }
 
     /// <summary>
+    /// True when either player has accumulated enough wins to end the match.
+    /// Set in MakeGuess; cleared in ResetRoundState (Play Again resets scores before clearing).
+    /// </summary>
+    public bool IsMatchOver { get; private set; }
+
+    /// <summary>Token of the player who won the match. Null until a match winner is determined.</summary>
+    public string? MatchWinnerToken { get; private set; }
+
+    /// <summary>
     /// UTC time when the post-answer countdown started. Null when no countdown is running.
     /// Read from any thread for display purposes (no lock required for reads).
     /// </summary>
@@ -55,6 +67,22 @@ public sealed class GameSession
     /// <summary>Ordered list of all messages in the current round's chat log.</summary>
     public IReadOnlyList<ChatMessage> ChatLog => _chatLog.AsReadOnly();
 
+    // ── Post-round consensus state ────────────────────────────────────────
+
+    /// <summary>
+    /// Records each player's post-round decision (NewRound or EndGame).
+    /// Populated as players click buttons in the round-end overlay.
+    /// </summary>
+    private readonly Dictionary<string, PostRoundDecision> _postRoundDecisions = new();
+
+    /// <summary>
+    /// Server-side timer that fires 60 seconds after the first player makes a post-round decision.
+    /// On expiry defaults to EndGame if consensus has not been reached.
+    /// </summary>
+    private System.Threading.Timer? _postRoundTimeoutTimer;
+
+    // ── Core properties ───────────────────────────────────────────────────
+
     /// <summary>Returns true if the specified token belongs to the currently active player.</summary>
     public bool IsActivePlayer(string token) =>
         !string.IsNullOrEmpty(token) && token == ActivePlayerToken;
@@ -63,6 +91,8 @@ public sealed class GameSession
     public event EventHandler? StateChanged;
 
     public bool IsFull => Player1 is not null && Player2 is not null;
+
+    // ── Player management ─────────────────────────────────────────────────
 
     /// <summary>
     /// Attempts to add a player to the session.
@@ -96,6 +126,8 @@ public sealed class GameSession
         }
     }
 
+    // ── Mystery Person selection ──────────────────────────────────────────
+
     /// <summary>
     /// Records a player's Mystery Person choice. Once both players have selected,
     /// advances the session to the Playing phase and sets RoundNumber to 1.
@@ -123,6 +155,8 @@ public sealed class GameSession
         }
     }
 
+    // ── Turn management ───────────────────────────────────────────────────
+
     /// <summary>
     /// Passes the turn to the opposing player and resets per-turn state.
     /// No-ops if the caller is not the current active player (prevents double-fire).
@@ -142,6 +176,8 @@ public sealed class GameSession
             NotifyStateChanged();
         }
     }
+
+    // ── Chat / question flow ──────────────────────────────────────────────
 
     /// <summary>
     /// Posts a question from the active player into the chat log and locks further questions
@@ -195,6 +231,8 @@ public sealed class GameSession
         }
     }
 
+    // ── Face elimination ──────────────────────────────────────────────────
+
     /// <summary>
     /// Records that the active player has eliminated a character from their board.
     /// No-ops if: session is not in Playing phase, caller is not the active player,
@@ -216,9 +254,12 @@ public sealed class GameSession
         }
     }
 
+    // ── Guessing & round resolution ───────────────────────────────────────
+
     /// <summary>
     /// Resolves the round by the active player guessing the opponent's Mystery Person.
     /// A correct guess wins the round; wrong loses it immediately.
+    /// Sets IsMatchOver when either player reaches WinsToWin.
     /// No-ops if phase is not Playing or caller is not the active player.
     /// </summary>
     public void MakeGuess(string callerToken, int guessedCharacterId)
@@ -246,6 +287,14 @@ public sealed class GameSession
                 opponent.RoundWins++;
             }
 
+            // Check for match winner
+            var roundWinner = GetPlayer(RoundWinnerToken!)!;
+            if (roundWinner.RoundWins >= WinsToWin)
+            {
+                IsMatchOver = true;
+                MatchWinnerToken = RoundWinnerToken;
+            }
+
             EndReason = isCorrect ? RoundEndReason.CorrectGuess : RoundEndReason.WrongGuess;
             CountdownStartedAt = null;  // cancel any running countdown
             Phase = GamePhase.RoundEnd;
@@ -253,44 +302,100 @@ public sealed class GameSession
         }
     }
 
+    // ── Post-round consensus ──────────────────────────────────────────────
+
     /// <summary>
-    /// Starts a new round within the same session. Resets per-round state and returns
-    /// both players to the CharacterSelection phase. Championship scores are preserved.
+    /// Records a player's post-round decision (NewRound or EndGame).
+    /// If both players choose the same option it executes immediately.
+    /// Starts a 60-second server-side timeout on the first decision;
+    /// if consensus is not reached in time the game ends.
     /// No-ops if phase is not RoundEnd or the caller is not a session participant.
     /// </summary>
-    public void StartNewRound(string callerToken)
+    public void MakePostRoundDecision(string callerToken, PostRoundDecision decision)
     {
         lock (_lock)
         {
             if (Phase != GamePhase.RoundEnd) return;
             if (GetPlayer(callerToken) is null) return;
 
-            RoundNumber++;
-            ResetRoundState();
-            Phase = GamePhase.CharacterSelection;
+            _postRoundDecisions[callerToken] = decision;
+
+            // Start the 60-second timeout on the first decision (if not already running)
+            _postRoundTimeoutTimer ??= new System.Threading.Timer(_ =>
+            {
+                lock (_lock)
+                {
+                    if (Phase == GamePhase.RoundEnd)
+                        ExecuteEndGame();
+                }
+            }, null, TimeSpan.FromSeconds(60), Timeout.InfiniteTimeSpan);
+
+            // Check if both players have made the same decision
+            if (_postRoundDecisions.Count == 2
+                && _postRoundDecisions.TryGetValue(Player1!.Token, out var p1Decision)
+                && _postRoundDecisions.TryGetValue(Player2!.Token, out var p2Decision)
+                && p1Decision == p2Decision)
+            {
+                _postRoundTimeoutTimer?.Dispose();
+                _postRoundTimeoutTimer = null;
+
+                if (p1Decision == PostRoundDecision.NewRound)
+                    ExecuteNewRound();
+                else
+                    ExecuteEndGame();
+
+                return;  // NotifyStateChanged is called inside Execute*
+            }
+
+            // One or both players have decided, but no consensus yet — update display
             NotifyStateChanged();
         }
     }
 
     /// <summary>
-    /// Ends the game session and signals both clients to return to the landing page.
-    /// No-ops if phase is not RoundEnd or the caller is not a session participant.
+    /// Returns the post-round decision made by the specified player, or null if they
+    /// have not yet decided. Safe to call from any thread for display purposes.
     /// </summary>
-    public void EndGame(string callerToken)
-    {
-        lock (_lock)
-        {
-            if (Phase != GamePhase.RoundEnd) return;
-            if (GetPlayer(callerToken) is null) return;
+    public PostRoundDecision? GetPostRoundDecision(string token) =>
+        _postRoundDecisions.TryGetValue(token, out var d) ? d : null;
 
-            Phase = GamePhase.GameEnd;
-            NotifyStateChanged();
+    // ── Private execution helpers ─────────────────────────────────────────
+
+    /// <summary>
+    /// Begins a new round. If a match just ended (Play Again), resets both players'
+    /// round win counts to zero before starting fresh.
+    /// Must be called inside _lock.
+    /// </summary>
+    private void ExecuteNewRound()
+    {
+        // Play Again — match is over, reset championship scores to start fresh
+        if (IsMatchOver)
+        {
+            Player1!.RoundWins = 0;
+            Player2!.RoundWins = 0;
         }
+
+        RoundNumber++;
+        ResetRoundState();
+        Phase = GamePhase.CharacterSelection;
+        NotifyStateChanged();
+    }
+
+    /// <summary>
+    /// Ends the game session, causing both clients to navigate home.
+    /// Must be called inside _lock.
+    /// </summary>
+    private void ExecuteEndGame()
+    {
+        Phase = GamePhase.GameEnd;
+        NotifyStateChanged();
     }
 
     /// <summary>
     /// Resets all per-round mutable state on both players and on the session.
-    /// Championship scores (RoundWins) are NOT touched. Must be called inside _lock.
+    /// Championship scores (RoundWins) are NOT touched here — Play Again resets them
+    /// in ExecuteNewRound before calling this method.
+    /// Must be called inside _lock.
     /// </summary>
     private void ResetRoundState()
     {
@@ -308,7 +413,16 @@ public sealed class GameSession
         ActivePlayerToken = "";
         RoundWinnerToken = null;
         EndReason = null;
+
+        // Clear post-round consensus state
+        _postRoundDecisions.Clear();
+        _postRoundTimeoutTimer?.Dispose();
+        _postRoundTimeoutTimer = null;
+        IsMatchOver = false;
+        MatchWinnerToken = null;
     }
+
+    // ── Lookups ───────────────────────────────────────────────────────────
 
     public PlayerState? GetPlayer(string token) =>
         Player1?.Token == token ? Player1
