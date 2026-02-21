@@ -153,3 +153,26 @@
 .face-card--guessable:active {
     transform: translateY(0);
 }
+
+/* ── Selected for guess — solid blue border, always visible (no hover needed) ── */
+/* Applied when the player has clicked a card in guess mode as one of their two picks. */
+.face-card--selected .face-card__art {
+    border-color: #58a6ff !important;
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.4), 0 0 14px rgba(88, 166, 255, 0.5) !important;
+}
+
+.face-card--selected .face-card__name {
+    color: #58a6ff;
+}
+
+.face-card--selected {
+    transform: translateY(-3px);
+}
+
+.face-card--selected:hover {
+    transform: translateY(-4px);
+}
+
+.face-card--selected:active {
+    transform: translateY(0);
+}

@@ -27,17 +27,16 @@ else if (_me is null)
     </div>
 }
 
-@* ── CharacterSelection: picker ─────────────────────────────── *@
-else if (_session.Phase == GamePhase.CharacterSelection && !_me.MysteryPersonId.HasValue)
+@* ── CharacterSelection: picker (Challenge Mode: pick TWO) ──── *@
+else if (_session.Phase == GamePhase.CharacterSelection && !_me.HasSelectedMysteryPeople)
 {
     <div class="selection-page">
 
         <div class="selection-header">
-            <h1 class="selection-title">Choose Your Mystery Person</h1>
+            <h1 class="selection-title">Choose Your Two Mystery People</h1>
             <p class="selection-subtitle">
-                Your choice is secret —
-                <strong>@(_opponent?.Name ?? "your opponent")</strong>
-                won't know who you picked.
+                Pick <strong>two</strong> characters — your opponent must identify both.
+                Your choices are secret from <strong>@(_opponent?.Name ?? "your opponent")</strong>.
             </p>
         </div>
 
@@ -46,35 +45,58 @@ else if (_session.Phase == GamePhase.CharacterSelection && !_me.MysteryPersonId.
                 @foreach (var character in CharacterData.All)
                 {
                     var charId = character.Id;
-                    <div class="selection-card-wrap @(_pendingId.HasValue && _pendingId != charId ? "selection-card-wrap--dimmed" : "")">
+                    var isChosen = _pendingIds.Contains(charId);
+                    var isDimmed = !isChosen && _pendingIds.Count == 2;
+                    <div class="selection-card-wrap @(isDimmed ? "selection-card-wrap--dimmed" : "")">
                         <FaceCard Character="character"
                                   Size="md"
                                   ShowName="true"
-                                  IsMystery="@(_pendingId == charId)"
-                                  OnClick="@(_ => SetPending(charId))" />
+                                  IsMystery="@isChosen"
+                                  OnClick="@(_ => TogglePending(charId))" />
                     </div>
                 }
             </div>
         </div>
 
         <div class="selection-footer">
-            @if (_pendingId.HasValue)
+            @if (_pendingIds.Count == 0)
             {
-                var chosen = CharacterData.GetById(_pendingId.Value)!;
-                <div class="selection-chosen">
-                    <FaceCard Character="chosen" Size="sm" IsMystery="true" ShowName="false" />
-                    <span class="selection-chosen-name">@chosen.Name</span>
+                <p class="selection-hint">Click two characters to select your Mystery People (0 / 2 chosen)</p>
+            }
+            else if (_pendingIds.Count == 1)
+            {
+                var chosen1 = CharacterData.GetById(_pendingIds[0])!;
+                <div class="selection-chosen-pair">
+                    <div class="selection-chosen-slot selection-chosen-slot--filled">
+                        <FaceCard Character="chosen1" Size="sm" IsMystery="true" ShowName="false" />
+                        <span class="selection-chosen-name">@chosen1.Name</span>
+                    </div>
+                    <div class="selection-chosen-slot selection-chosen-slot--empty">
+                        <div class="selection-chosen-placeholder">?</div>
+                        <span class="selection-chosen-name selection-chosen-name--muted">Choose one more…</span>
+                    </div>
                 </div>
-                <button class="btn btn-primary selection-confirm-btn" @onclick="ConfirmSelection">
-                    Confirm — @chosen.Name is my Mystery Person
-                </button>
-                <button class="btn btn-secondary" @onclick="ClearPending">
-                    Change
-                </button>
+                <p class="selection-hint selection-hint--progress">1 of 2 chosen — pick one more</p>
+                <button class="btn btn-secondary" @onclick="ClearPending">Clear</button>
             }
             else
             {
-                <p class="selection-hint">Click any character card to select your Mystery Person</p>
+                var chosen1 = CharacterData.GetById(_pendingIds[0])!;
+                var chosen2 = CharacterData.GetById(_pendingIds[1])!;
+                <div class="selection-chosen-pair">
+                    <div class="selection-chosen-slot selection-chosen-slot--filled">
+                        <FaceCard Character="chosen1" Size="sm" IsMystery="true" ShowName="false" />
+                        <span class="selection-chosen-name">@chosen1.Name</span>
+                    </div>
+                    <div class="selection-chosen-slot selection-chosen-slot--filled">
+                        <FaceCard Character="chosen2" Size="sm" IsMystery="true" ShowName="false" />
+                        <span class="selection-chosen-name">@chosen2.Name</span>
+                    </div>
+                </div>
+                <button class="btn btn-primary selection-confirm-btn" @onclick="ConfirmSelection">
+                    Confirm — @chosen1.Name &amp; @chosen2.Name
+                </button>
+                <button class="btn btn-secondary" @onclick="ClearPending">Change</button>
             }
         </div>
 
@@ -82,18 +104,21 @@ else if (_session.Phase == GamePhase.CharacterSelection && !_me.MysteryPersonId.
 }
 
 @* ── CharacterSelection: waiting for opponent ──────────────── *@
-else if (_session.Phase == GamePhase.CharacterSelection && _me.MysteryPersonId.HasValue)
+else if (_session.Phase == GamePhase.CharacterSelection && _me.HasSelectedMysteryPeople)
 {
-    var myPerson = CharacterData.GetById(_me.MysteryPersonId.Value);
+    var mp1 = CharacterData.GetById(_me.MysteryPersonIds[0]);
+    var mp2 = CharacterData.GetById(_me.MysteryPersonIds[1]);
     <div class="waiting-page">
         <div class="waiting-card">
-            <div class="waiting-mystery">
-                <FaceCard Character="myPerson" Size="lg" IsMystery="true" ShowName="true" />
+            <div class="waiting-mystery waiting-mystery--pair">
+                <FaceCard Character="mp1" Size="sm" IsMystery="true" ShowName="true" />
+                <FaceCard Character="mp2" Size="sm" IsMystery="true" ShowName="true" />
             </div>
             <h2 class="waiting-title">Locked In!</h2>
             <p class="waiting-subtitle">
-                Your Mystery Person is
-                <strong class="waiting-highlight">@myPerson?.Name</strong>.
+                Your Mystery People are
+                <strong class="waiting-highlight">@mp1?.Name</strong> and
+                <strong class="waiting-highlight">@mp2?.Name</strong>.
             </p>
             <p class="waiting-subtitle">
                 Waiting for <strong>@(_opponent?.Name ?? "your opponent")</strong> to choose…
@@ -106,7 +131,10 @@ else if (_session.Phase == GamePhase.CharacterSelection && _me.MysteryPersonId.H
 @* ── Playing / RoundEnd phase — full game board (+ overlay) ── *@
 else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
 {
-    var myPerson = CharacterData.GetById(_me!.MysteryPersonId ?? 0);
+    var myPeople = _me!.MysteryPersonIds
+        .Select(id => CharacterData.GetById(id))
+        .Where(c => c is not null)
+        .ToList();
 
     <div class="game-board">
 
@@ -116,7 +144,7 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
         <div class="game-left">
 
             @* ── Opponent's board (top, sm cards) ────────────────── *@
-            @* In guess mode the active player can click face-up cards to make a guess *@
+            @* In guess mode the active player can click face-up cards to build their guess *@
             <div class="board-section">
                 <div class="board-header">
                     <span class="board-label">
@@ -124,7 +152,7 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
                         @if (_guessModeActive)
                         {
                             <span style="color:var(--accent-blue);margin-left:6px;font-size:0.68rem;">
-                                — GUESS MODE
+                                — GUESS MODE (@_pendingGuessIds.Count/2 selected)
                             </span>
                         }
                     </span>
@@ -146,14 +174,17 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
                             var localId = charId;
                             var ch = CharacterData.GetById(localId);
                             var isOppEliminated = _opponent!.EliminatedIds.Contains(localId);
-                            // Cards can be guessed only when: guess mode active, it's my turn, not face-down
-                            var canGuess = _guessModeActive && _isMyTurn && !isOppEliminated;
+                            var isSelectedForGuess = _guessModeActive && _pendingGuessIds.Contains(localId);
+                            // Guessable: guess mode active, my turn, face-up, not already selected, still room to pick
+                            var canGuess = _guessModeActive && _isMyTurn && !isOppEliminated
+                                           && !isSelectedForGuess && _pendingGuessIds.Count < 2;
                             <FaceCard Character="ch"
                                       Size="sm"
                                       ShowName="true"
                                       FaceDown="@isOppEliminated"
+                                      IsSelected="@isSelectedForGuess"
                                       IsGuessable="@canGuess"
-                                      OnClick="@GetGuessCallback(localId, canGuess)" />
+                                      OnClick="@GetGuessCallback(localId, isOppEliminated, isSelectedForGuess, canGuess)" />
                         }
                     </div>
                 </div>
@@ -177,7 +208,7 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
                         {
                             var localId = charId;
                             var ch = CharacterData.GetById(localId);
-                            var isMystery = localId == _me!.MysteryPersonId;
+                            var isMystery = _me!.MysteryPersonIds.Contains(localId);
                             var isEliminated = _me!.EliminatedIds.Contains(localId);
                             var canEliminate = _isMyTurn && !isMystery && !isEliminated;
                             <FaceCard Character="ch"
@@ -195,7 +226,7 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
         </div>
 
         @* ════════════════════════════════════════════════════════
-           RIGHT COLUMN — score bar, mystery person, chat panel
+           RIGHT COLUMN — score bar, mystery people, chat panel
            ════════════════════════════════════════════════════════ *@
         <div class="game-right">
 
@@ -229,16 +260,18 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
                 }
             </div>
 
-            @* ── Mystery Person display ──────────────────────────── *@
+            @* ── Mystery People display (two cards side by side) ─── *@
             <div class="mystery-panel">
-                <div class="mystery-label">Your Mystery Person</div>
-                @if (myPerson is not null)
-                {
-                    <div class="mystery-card-wrap">
-                        <FaceCard Character="myPerson" Size="lg" IsMystery="true" ShowName="true" />
-                    </div>
-                }
-                <div class="mystery-keep-secret">Keep this secret from your opponent!</div>
+                <div class="mystery-label">Your Mystery People</div>
+                <div class="mystery-cards-row">
+                    @foreach (var mp in myPeople)
+                    {
+                        <div class="mystery-card-wrap">
+                            <FaceCard Character="mp" Size="sm" IsMystery="true" ShowName="true" />
+                        </div>
+                    }
+                </div>
+                <div class="mystery-keep-secret">Keep these secret from your opponent!</div>
             </div>
 
             @* ── Chat panel ──────────────────────────────────────── *@
@@ -255,8 +288,8 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
                     {
                         @foreach (var entry in GetChatEntries())
                         {
-                            var msg    = entry.Message;
-                            var turnQ  = entry.TurnNumber;
+                            var msg   = entry.Message;
+                            var turnQ = entry.TurnNumber;
 
                             @* Insert a labelled divider before every question after the first *@
                             @if (msg.Kind == ChatMessageKind.Question && turnQ > 1)
@@ -278,7 +311,7 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
                                 }
                                 else if (msg.Kind == ChatMessageKind.Answer)
                                 {
-                                    @* Large Yes / No — easy to scan at a glance *@
+                                    @* Large answer text (Both / One of them / Neither) — easy to scan *@
                                     <span class="chat-msg-answer-text">@msg.Text</span>
                                     <span class="chat-msg-sender">@msg.SenderName</span>
                                 }
@@ -308,27 +341,43 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
                     {
                         @if (_guessModeActive)
                         {
-                            @* Guess mode active — confirmation or hint *@
-                            @if (_pendingGuessId.HasValue)
+                            @* Guess mode active — show pick status or confirmation *@
+                            @if (_pendingGuessIds.Count == 2)
                             {
-                                @* Player has clicked a card — show confirmation *@
-                                var pendingChar = CharacterData.GetById(_pendingGuessId.Value);
+                                @* Two cards selected — show confirmation panel *@
+                                var g1 = CharacterData.GetById(_pendingGuessIds[0]);
+                                var g2 = CharacterData.GetById(_pendingGuessIds[1]);
                                 <div class="guess-confirm-panel">
-                                    <div class="guess-confirm-name">@pendingChar?.Name</div>
+                                    <div class="guess-confirm-names">
+                                        <span class="guess-confirm-name">@g1?.Name</span>
+                                        <span class="guess-confirm-and">&amp;</span>
+                                        <span class="guess-confirm-name">@g2?.Name</span>
+                                    </div>
                                     <div class="guess-confirm-warning">
-                                        Guess this person? A wrong guess means you lose the round immediately.
+                                        Guess these two people? A wrong guess means you lose immediately.
                                     </div>
                                     <div class="guess-confirm-buttons">
                                         <button class="btn-guess-confirm" @onclick="ConfirmGuess">Confirm Guess</button>
-                                        <button class="btn-guess-cancel"  @onclick="CancelGuessMode">Cancel</button>
+                                        <button class="btn-guess-cancel" @onclick="CancelGuessMode">Cancel</button>
                                     </div>
+                                </div>
+                            }
+                            else if (_pendingGuessIds.Count == 1)
+                            {
+                                @* One card selected — show partial hint *@
+                                var g1 = CharacterData.GetById(_pendingGuessIds[0]);
+                                <div class="guess-mode-active">
+                                    <p class="guess-mode-hint">
+                                        🎯 <strong>@g1?.Name</strong> selected — click one more face to complete your guess
+                                    </p>
+                                    <button class="btn-guess-cancel" @onclick="CancelGuessMode">Cancel Guess Mode</button>
                                 </div>
                             }
                             else
                             {
-                                @* No pending card yet — show instruction + cancel *@
+                                @* No cards selected yet — show initial instruction *@
                                 <div class="guess-mode-active">
-                                    <p class="guess-mode-hint">🎯 Click a face on the opponent's board to guess</p>
+                                    <p class="guess-mode-hint">🎯 Click two faces on the opponent's board to guess</p>
                                     <button class="btn-guess-cancel" @onclick="CancelGuessMode">Cancel Guess Mode</button>
                                 </div>
                             }
@@ -399,13 +448,15 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
                     }
 
                     @* ── Inactive player: question awaiting answer ────── *@
+                    @* Challenge Mode: three answer options — Both, One of them, Neither *@
                     else if (!_isMyTurn && _session.AwaitingAnswer)
                     {
                         <div class="chat-yn-row">
-                            <p class="chat-yn-prompt">Answer @(_session.GetPlayer(_session.ActivePlayerToken)?.Name ?? "opponent")'s question:</p>
-                            <div class="chat-yn-buttons">
-                                <button class="btn btn-yes" @onclick="@(() => RespondToQuestion(true))">Yes</button>
-                                <button class="btn btn-no"  @onclick="@(() => RespondToQuestion(false))">No</button>
+                            <p class="chat-yn-prompt">Answer @(_session.GetPlayer(_session.ActivePlayerToken)?.Name ?? "opponent")'s question about your two people:</p>
+                            <div class="chat-triple-buttons">
+                                <button class="btn btn-both"    @onclick="@(() => RespondToQuestion("Both"))">Both</button>
+                                <button class="btn btn-one"     @onclick="@(() => RespondToQuestion("One of them"))">One of them</button>
+                                <button class="btn btn-neither" @onclick="@(() => RespondToQuestion("Neither"))">Neither</button>
                             </div>
                         </div>
                     }
@@ -432,14 +483,9 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
     @* Rendered on top of the board when the phase is RoundEnd.  *@
     @if (_session.Phase == GamePhase.RoundEnd)
     {
-        var isWinner       = _session.RoundWinnerToken == MyToken;
-        var winnerName     = _session.GetPlayer(_session.RoundWinnerToken ?? "")?.Name ?? "Unknown";
-        var loserName      = _session.GetOpponent(_session.RoundWinnerToken ?? "")?.Name ?? "Unknown";
-
-        var p1Person = _session.Player1?.MysteryPersonId.HasValue == true
-            ? CharacterData.GetById(_session.Player1.MysteryPersonId.Value) : null;
-        var p2Person = _session.Player2?.MysteryPersonId.HasValue == true
-            ? CharacterData.GetById(_session.Player2.MysteryPersonId.Value) : null;
+        var isWinner   = _session.RoundWinnerToken == MyToken;
+        var winnerName = _session.GetPlayer(_session.RoundWinnerToken ?? "")?.Name ?? "Unknown";
+        var loserName  = _session.GetOpponent(_session.RoundWinnerToken ?? "")?.Name ?? "Unknown";
 
         // Match champion data
         var matchWinnerName = _session.IsMatchOver
@@ -451,7 +497,7 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
         var continueLabel = _session.IsMatchOver ? "Play Again" : "New Round";
 
         // Per-player post-round decisions from the server
-        var myDecision  = MyToken is not null   ? _session.GetPostRoundDecision(MyToken) : null;
+        var myDecision  = MyToken is not null ? _session.GetPostRoundDecision(MyToken) : null;
         var oppDecision = _opponent?.Token is not null ? _session.GetPostRoundDecision(_opponent.Token) : null;
 
         <div class="round-end-overlay">
@@ -481,34 +527,53 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
                 <p class="round-end-subtext">
                     @if (_session.EndReason == RoundEndReason.CorrectGuess)
                     {
-                        @($"{winnerName} guessed correctly!")
+                        @($"{winnerName} identified both Mystery People correctly!")
                     }
                     else
                     {
-                        @($"{loserName} guessed wrong — {winnerName} wins!")
+                        @($"{loserName} guessed wrong — {winnerName} wins the round!")
                     }
                 </p>
 
                 <div class="round-end-divider"></div>
 
-                @* ── Mystery Person reveal ─────────────────────────────── *@
+                @* ── Mystery People reveal — 2 cards per player (4 total) ── *@
                 <div class="round-end-reveal">
-                    @if (p1Person is not null)
-                    {
-                        <div class="round-end-reveal-slot">
-                            <div class="round-end-reveal-label">@(_session.Player1?.Name)'s Person</div>
-                            <FaceCard Character="p1Person" Size="md" ShowName="false" IsMystery="true" />
-                            <div class="round-end-reveal-name">@p1Person.Name</div>
+                    @* Player 1's two Mystery People *@
+                    <div class="round-end-reveal-player">
+                        <div class="round-end-reveal-player-label">@(_session.Player1?.Name)'s People</div>
+                        <div class="round-end-reveal-cards">
+                            @foreach (var mpId in _session.Player1?.MysteryPersonIds ?? [])
+                            {
+                                var mp = CharacterData.GetById(mpId);
+                                @if (mp is not null)
+                                {
+                                    <div class="round-end-reveal-slot">
+                                        <FaceCard Character="mp" Size="sm" ShowName="false" IsMystery="true" />
+                                        <div class="round-end-reveal-name">@mp.Name</div>
+                                    </div>
+                                }
+                            }
                         </div>
-                    }
-                    @if (p2Person is not null)
-                    {
-                        <div class="round-end-reveal-slot">
-                            <div class="round-end-reveal-label">@(_session.Player2?.Name)'s Person</div>
-                            <FaceCard Character="p2Person" Size="md" ShowName="false" IsMystery="true" />
-                            <div class="round-end-reveal-name">@p2Person.Name</div>
+                    </div>
+
+                    @* Player 2's two Mystery People *@
+                    <div class="round-end-reveal-player">
+                        <div class="round-end-reveal-player-label">@(_session.Player2?.Name)'s People</div>
+                        <div class="round-end-reveal-cards">
+                            @foreach (var mpId in _session.Player2?.MysteryPersonIds ?? [])
+                            {
+                                var mp = CharacterData.GetById(mpId);
+                                @if (mp is not null)
+                                {
+                                    <div class="round-end-reveal-slot">
+                                        <FaceCard Character="mp" Size="sm" ShowName="false" IsMystery="true" />
+                                        <div class="round-end-reveal-name">@mp.Name</div>
+                                    </div>
+                                }
+                            }
                         </div>
-                    }
+                    </div>
                 </div>
 
                 <div class="round-end-divider"></div>
@@ -597,14 +662,20 @@ else
     private PlayerState? _me;
     private PlayerState? _opponent;
 
-    /// <summary>Card the player has clicked but not yet confirmed (Mystery Person selection).</summary>
-    private int? _pendingId;
+    /// <summary>
+    /// Characters selected during the CharacterSelection phase (Challenge Mode: up to 2).
+    /// Clicking a card adds it; clicking again removes it; list capped at 2 entries.
+    /// </summary>
+    private readonly List<int> _pendingIds = [];
 
     /// <summary>True when the active player has activated guess mode on the opponent's board.</summary>
     private bool _guessModeActive;
 
-    /// <summary>Character ID the active player has clicked in guess mode, awaiting confirmation.</summary>
-    private int? _pendingGuessId;
+    /// <summary>
+    /// Characters selected for the pending guess (Challenge Mode: up to 2).
+    /// Clicking a card in guess mode adds it; clicking again deselects it.
+    /// </summary>
+    private readonly List<int> _pendingGuessIds = [];
 
     /// <summary>Current value of the chat text input.</summary>
     private string _chatInput = "";
@@ -682,7 +753,7 @@ else
             if (!_isMyTurn || _session?.Phase != GamePhase.Playing)
             {
                 _guessModeActive = false;
-                _pendingGuessId  = null;
+                _pendingGuessIds.Clear();
                 _suggestionsOpen = false;
             }
 
@@ -696,7 +767,6 @@ else
             }
 
             // Start the countdown timer when the session enters the post-answer countdown window.
-            // No-ops if the timer is already running (CountdownActive was already true last render).
             if (_session?.CountdownActive == true)
                 StartCountdownTimer();
 
@@ -713,7 +783,6 @@ else
     /// </summary>
     private void StartCountdownTimer()
     {
-        // Dispose any existing timer before creating a new one
         _countdownTimer?.Dispose();
         _countdownTimer = new System.Threading.Timer(async _ =>
         {
@@ -721,7 +790,6 @@ else
             {
                 if (_session?.CountdownActive != true)
                 {
-                    // Countdown ended — dispose the timer and trigger a final render
                     _countdownTimer?.Dispose();
                     _countdownTimer = null;
                     await InvokeAsync(StateHasChanged);
@@ -736,14 +804,14 @@ else
 
                 await InvokeAsync(StateHasChanged);
             }
-            catch (ObjectDisposedException) { /* Component was disposed — stop silently */ }
+            catch (ObjectDisposedException) { /* Component disposed — stop silently */ }
             catch (Exception) { /* Swallow any other interop failures */ }
         }, null, dueTime: 0, period: 500);
     }
 
     /// <summary>
     /// Returns an EventCallback that calls EliminateCard when canEliminate is true,
-    /// or an empty callback otherwise. Avoids ambiguous ternary-lambda type inference.
+    /// or an empty callback otherwise.
     /// </summary>
     private EventCallback<Character?> GetEliminateCallback(int characterId, bool canEliminate) =>
         canEliminate
@@ -751,17 +819,25 @@ else
             : default;
 
     /// <summary>
-    /// Returns an EventCallback that calls SetPendingGuess when canGuess is true,
-    /// or an empty callback otherwise.
+    /// Returns an EventCallback for an opponent board card in guess mode.
+    /// - If already selected: clicking deselects it.
+    /// - If can be added (face-up, &lt;2 pending): clicking selects it.
+    /// - Otherwise: no callback.
     /// </summary>
-    private EventCallback<Character?> GetGuessCallback(int characterId, bool canGuess) =>
-        canGuess
-            ? EventCallback.Factory.Create<Character?>(this, _ => SetPendingGuess(characterId))
-            : default;
+    private EventCallback<Character?> GetGuessCallback(int characterId, bool isOppEliminated,
+                                                        bool isSelected, bool canGuess)
+    {
+        if (!_guessModeActive || !_isMyTurn || isOppEliminated) return default;
+        if (isSelected)
+            return EventCallback.Factory.Create<Character?>(this, _ => DeselectGuess(characterId));
+        if (canGuess)
+            return EventCallback.Factory.Create<Character?>(this, _ => SelectForGuess(characterId));
+        return default;
+    }
 
     /// <summary>
     /// Eliminates a character from the active player's own board.
-    /// Server-side guards prevent eliminating the Mystery Person or non-active-player requests.
+    /// Server-side guards prevent eliminating Mystery People or non-active-player requests.
     /// </summary>
     private void EliminateCard(int characterId)
     {
@@ -791,19 +867,18 @@ else
 
     /// <summary>
     /// Populates the chat input with the selected suggested question and closes the chip panel.
-    /// The player may edit the text before sending.
     /// </summary>
     private void SelectSuggestedQuestion(string questionText)
     {
-        _chatInput        = questionText;
-        _suggestionsOpen  = false;
+        _chatInput       = questionText;
+        _suggestionsOpen = false;
     }
 
-    /// <summary>Called when the inactive player clicks Yes or No to answer the pending question.</summary>
-    private async Task RespondToQuestion(bool yes)
+    /// <summary>Called when the inactive player clicks one of the three answer buttons.</summary>
+    private async Task RespondToQuestion(string answer)
     {
         if (_isMyTurn || _session?.AwaitingAnswer != true) return;
-        GameSessionService.AnswerQuestion(Code, MyToken!, yes);
+        GameSessionService.AnswerQuestion(Code, MyToken!, answer);
         await ScrollChatToBottom();
     }
 
@@ -832,27 +907,36 @@ else
     private void ActivateGuessMode()
     {
         _guessModeActive = true;
-        _pendingGuessId  = null;
+        _pendingGuessIds.Clear();
     }
 
     private void CancelGuessMode()
     {
         _guessModeActive = false;
-        _pendingGuessId  = null;
+        _pendingGuessIds.Clear();
     }
 
-    private void SetPendingGuess(int characterId) => _pendingGuessId = characterId;
+    /// <summary>Adds a character to the pending guess list (max 2).</summary>
+    private void SelectForGuess(int characterId)
+    {
+        if (_pendingGuessIds.Count < 2 && !_pendingGuessIds.Contains(characterId))
+            _pendingGuessIds.Add(characterId);
+    }
+
+    /// <summary>Removes a character from the pending guess list.</summary>
+    private void DeselectGuess(int characterId) =>
+        _pendingGuessIds.Remove(characterId);
 
     /// <summary>
-    /// Submits the confirmed guess to the server. On return the phase will become RoundEnd
-    /// and StateChanged fires, triggering the overlay for both players.
+    /// Submits the confirmed two-person guess to the server.
+    /// On return the phase becomes RoundEnd and StateChanged fires for both players.
     /// </summary>
     private void ConfirmGuess()
     {
-        if (!_guessModeActive || !_pendingGuessId.HasValue || MyToken is null) return;
-        GameSessionService.MakeGuess(Code, MyToken, _pendingGuessId.Value);
+        if (!_guessModeActive || _pendingGuessIds.Count != 2 || MyToken is null) return;
+        GameSessionService.MakeGuess(Code, MyToken, _pendingGuessIds[0], _pendingGuessIds[1]);
         _guessModeActive = false;
-        _pendingGuessId  = null;
+        _pendingGuessIds.Clear();
     }
 
     // ── Post-round actions ───────────────────────────────────────────────
@@ -870,8 +954,7 @@ else
     // ── Chat log presentation ─────────────────────────────────────────────
 
     /// <summary>
-    /// Annotates each chat message with its question-turn number (1-based for Question messages,
-    /// reflecting the cumulative count of questions asked so far; 0 for Answer and System messages).
+    /// Annotates each chat message with its question-turn number (1-based for Question messages).
     /// Computed once per render pass — avoids stateful counters in Razor markup.
     /// </summary>
     private IReadOnlyList<ChatEntry> GetChatEntries()
@@ -892,16 +975,26 @@ else
     /// <summary>A chat message paired with its computed turn number for rendering.</summary>
     private sealed record ChatEntry(ChatMessage Message, int TurnNumber);
 
-    // ── Mystery Person selection ─────────────────────────────────────────
+    // ── Mystery People selection ─────────────────────────────────────────
 
-    private void SetPending(int characterId) => _pendingId = characterId;
+    /// <summary>
+    /// Toggles a character in the pending-selection list.
+    /// If already selected, deselects it. If not selected and fewer than 2 are chosen, adds it.
+    /// </summary>
+    private void TogglePending(int characterId)
+    {
+        if (_pendingIds.Contains(characterId))
+            _pendingIds.Remove(characterId);
+        else if (_pendingIds.Count < 2)
+            _pendingIds.Add(characterId);
+    }
 
-    private void ClearPending() => _pendingId = null;
+    private void ClearPending() => _pendingIds.Clear();
 
     private void ConfirmSelection()
     {
-        if (_pendingId.HasValue && MyToken is not null)
-            GameSessionService.SelectMysteryPerson(Code, MyToken, _pendingId.Value);
+        if (_pendingIds.Count == 2 && MyToken is not null)
+            GameSessionService.SelectMysteryPeople(Code, MyToken, _pendingIds[0], _pendingIds[1]);
     }
 
     public void Dispose()

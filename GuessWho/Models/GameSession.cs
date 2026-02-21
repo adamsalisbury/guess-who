@@ -5,6 +5,7 @@ namespace GuessWho.Models;
 /// <summary>
 /// Server-side game session. Singleton service holds all active sessions.
 /// State changes are broadcast to subscribed Blazor components via the StateChanged event.
+/// Challenge Mode: each player picks TWO Mystery People; answers are Both / One of them / Neither.
 /// </summary>
 public sealed class GameSession
 {
@@ -30,7 +31,7 @@ public sealed class GameSession
 
     /// <summary>
     /// True when a question has been asked this turn but the opponent has not yet answered.
-    /// Drives the Yes/No button display for the inactive player.
+    /// Drives the Both/One/Neither button display for the inactive player.
     /// </summary>
     public bool AwaitingAnswer =>
         QuestionAsked && (_chatLog.Count == 0 || _chatLog[^1].Kind != ChatMessageKind.Answer);
@@ -126,26 +127,32 @@ public sealed class GameSession
         }
     }
 
-    // ── Mystery Person selection ──────────────────────────────────────────
+    // ── Mystery People selection (Challenge Mode: two per player) ─────────
 
     /// <summary>
-    /// Records a player's Mystery Person choice. Once both players have selected,
-    /// advances the session to the Playing phase and sets RoundNumber to 1.
-    /// No-ops if the token is unrecognised or the player has already confirmed.
+    /// Records a player's two Mystery People choices for the round.
+    /// Both IDs must be distinct. No-ops if the token is unrecognised,
+    /// the player has already confirmed, or the two IDs are the same.
+    /// Once both players have confirmed, advances the session to the Playing phase.
     /// </summary>
-    public void SelectMysteryPerson(string token, int characterId)
+    public void SelectMysteryPeople(string token, int id1, int id2)
     {
         lock (_lock)
         {
+            if (Phase != GamePhase.CharacterSelection) return;
+
             var player = GetPlayer(token);
-            if (player is null || player.MysteryPersonId.HasValue) return;
+            if (player is null || player.HasSelectedMysteryPeople) return;
+            if (id1 == id2) return;  // must pick two distinct characters
 
-            player.MysteryPersonId = characterId;
+            player.MysteryPersonIds.Clear();
+            player.MysteryPersonIds.Add(id1);
+            player.MysteryPersonIds.Add(id2);
 
-            if (Player1?.MysteryPersonId.HasValue == true && Player2?.MysteryPersonId.HasValue == true)
+            if (Player1?.HasSelectedMysteryPeople == true && Player2?.HasSelectedMysteryPeople == true)
             {
                 Phase = GamePhase.Playing;
-                RoundNumber = 1;
+                if (RoundNumber == 0) RoundNumber = 1;
                 ShuffleBoardOrders();
                 // Player 1 always takes the first turn
                 ActivePlayerToken = Player1!.Token;
@@ -207,21 +214,25 @@ public sealed class GameSession
     }
 
     /// <summary>
-    /// Records the inactive player's yes or no answer to the pending question.
+    /// Records the inactive player's answer to the pending question.
+    /// In Challenge Mode the answer is one of: "Both", "One of them", "Neither".
     /// No-ops if the caller is the active player or no question is awaiting an answer.
     /// </summary>
-    public void AnswerQuestion(string callerToken, bool yes)
+    public void AnswerQuestion(string callerToken, string answer)
     {
         lock (_lock)
         {
             if (callerToken == ActivePlayerToken) return;  // active player cannot answer their own question
             if (!AwaitingAnswer) return;                   // nothing pending
 
+            var trimmed = answer.Trim();
+            if (string.IsNullOrEmpty(trimmed)) return;
+
             var responder = GetPlayer(callerToken)!;
             _chatLog.Add(new ChatMessage
             {
                 SenderName = responder.Name,
-                Text = yes ? "Yes" : "No",
+                Text = trimmed,
                 Kind = ChatMessageKind.Answer
             });
             // QuestionAsked stays true — input remains locked until the turn ends
@@ -236,7 +247,7 @@ public sealed class GameSession
     /// <summary>
     /// Records that the active player has eliminated a character from their board.
     /// No-ops if: session is not in Playing phase, caller is not the active player,
-    /// the character is the caller's Mystery Person (immune), or already eliminated.
+    /// the character is one of the caller's Mystery People (immune), or already eliminated.
     /// </summary>
     public void EliminateCharacter(string callerToken, int characterId)
     {
@@ -247,8 +258,8 @@ public sealed class GameSession
 
             var player = GetPlayer(callerToken);
             if (player is null) return;
-            if (player.MysteryPersonId == characterId) return;  // Mystery Person is immune
-            if (!player.EliminatedIds.Add(characterId)) return; // already eliminated — no-op
+            if (player.MysteryPersonIds.Contains(characterId)) return;  // Mystery People are immune
+            if (!player.EliminatedIds.Add(characterId)) return;         // already eliminated — no-op
 
             NotifyStateChanged();
         }
@@ -257,23 +268,30 @@ public sealed class GameSession
     // ── Guessing & round resolution ───────────────────────────────────────
 
     /// <summary>
-    /// Resolves the round by the active player guessing the opponent's Mystery Person.
-    /// A correct guess wins the round; wrong loses it immediately.
+    /// Resolves the round by the active player guessing both of the opponent's Mystery People.
+    /// The two guessed IDs (order-independent) must exactly match the opponent's Mystery Person IDs.
+    /// A correct guess wins the round; any mismatch loses it immediately.
     /// Sets IsMatchOver when either player reaches WinsToWin.
-    /// No-ops if phase is not Playing or caller is not the active player.
+    /// No-ops if phase is not Playing, caller is not the active player,
+    /// or the two guessed IDs are identical.
     /// </summary>
-    public void MakeGuess(string callerToken, int guessedCharacterId)
+    public void MakeGuess(string callerToken, int guessId1, int guessId2)
     {
         lock (_lock)
         {
             if (Phase != GamePhase.Playing) return;
             if (callerToken != ActivePlayerToken) return;
+            if (guessId1 == guessId2) return;  // must guess two distinct people
 
             var opponent = GetOpponent(callerToken);
             if (opponent is null) return;
 
             var guesser = GetPlayer(callerToken)!;
-            var isCorrect = guessedCharacterId == opponent.MysteryPersonId;
+
+            // Order-independent set comparison — both IDs must match
+            var guessedSet = new HashSet<int> { guessId1, guessId2 };
+            var targetSet  = new HashSet<int>(opponent.MysteryPersonIds);
+            var isCorrect  = guessedSet.SetEquals(targetSet);
 
             if (isCorrect)
             {
@@ -402,7 +420,7 @@ public sealed class GameSession
         foreach (var player in new[] { Player1, Player2 })
         {
             if (player is null) continue;
-            player.MysteryPersonId = null;
+            player.MysteryPersonIds.Clear();
             player.EliminatedIds.Clear();
             player.BoardOrder.Clear();
         }

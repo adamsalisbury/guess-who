@@ -94,6 +94,49 @@
     white-space: nowrap;
 }
 
+/* Challenge Mode: pair of chosen-character preview slots in the footer */
+.selection-chosen-pair {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+/* Individual slot — filled (face card + name) or empty (placeholder + muted label) */
+.selection-chosen-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Dashed placeholder box matching sm face card dimensions */
+.selection-chosen-placeholder {
+    width: 72px;
+    height: 86px;
+    border: 2px dashed var(--border-subtle);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+.selection-chosen-name--muted {
+    color: var(--text-muted);
+    font-style: italic;
+    font-weight: 500;
+}
+
+/* Progress hint shown when 1 of 2 is chosen */
+.selection-hint--progress {
+    font-size: 0.82rem;
+    font-style: normal;
+    color: var(--accent-gold);
+    font-weight: 600;
+}
+
 .selection-confirm-btn {
     padding: 0.6rem 1.75rem;
     font-size: 0.95rem;
@@ -357,6 +400,15 @@
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--accent-gold);
+}
+
+/* Challenge Mode: two face cards side by side in the mystery panel */
+.mystery-cards-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
 }
 
 /* Centre the inline-flex FaceCard within the panel */
@@ -976,31 +1028,52 @@
     background: var(--border-subtle);
 }
 
-/* Mystery Person reveal — two cards side by side */
+/* Challenge Mode reveal — two player columns, each with two face cards */
 .round-end-reveal {
     display: flex;
-    gap: 2.5rem;
+    gap: 2rem;
     align-items: flex-start;
     justify-content: center;
+    width: 100%;
 }
 
-.round-end-reveal-slot {
+/* One column per player */
+.round-end-reveal-player {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    flex: 1;
 }
 
-.round-end-reveal-label {
+/* Player name label above their two cards */
+.round-end-reveal-player-label {
     font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text-muted);
+    text-align: center;
+}
+
+/* Row of two sm face cards within a player's column */
+.round-end-reveal-cards {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* Individual face card + name label */
+.round-end-reveal-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
 }
 
 .round-end-reveal-name {
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     font-weight: 700;
     color: var(--text-primary);
     text-align: center;
@@ -1154,4 +1227,102 @@
     text-align: center;
     margin: 0;
     animation: popIn 180ms ease;
+}
+
+/* ============================================================
+   Challenge Mode — Three-way answer buttons (Both / One / Neither)
+   ============================================================ */
+
+/* Container: three equal-width buttons stacked or in a row */
+.chat-triple-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+/* Shared base for all three answer buttons */
+.btn-both,
+.btn-one,
+.btn-neither {
+    flex: 1;
+    padding: 0.48rem 0.5rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    border: 2px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 140ms ease, border-color 140ms ease, transform 80ms ease;
+    white-space: nowrap;
+}
+
+/* "Both" — green (positive, matches both) */
+.btn-both {
+    background: rgba(63, 185, 80, 0.15);
+    color: var(--accent-green);
+    border-color: var(--accent-green);
+}
+
+.btn-both:hover {
+    background: rgba(63, 185, 80, 0.28);
+    transform: translateY(-1px);
+}
+
+/* "One of them" — gold (partial match) */
+.btn-one {
+    background: rgba(240, 165, 0, 0.12);
+    color: var(--accent-gold);
+    border-color: rgba(240, 165, 0, 0.7);
+}
+
+.btn-one:hover {
+    background: rgba(240, 165, 0, 0.24);
+    transform: translateY(-1px);
+}
+
+/* "Neither" — red (negative, matches none) */
+.btn-neither {
+    background: rgba(220, 80, 80, 0.12);
+    color: #e05555;
+    border-color: #e05555;
+}
+
+.btn-neither:hover {
+    background: rgba(220, 80, 80, 0.25);
+    transform: translateY(-1px);
+}
+
+.btn-both:active,
+.btn-one:active,
+.btn-neither:active {
+    transform: translateY(0);
+}
+
+/* ============================================================
+   Challenge Mode — Waiting screen two-card mystery display
+   ============================================================ */
+
+/* Row of two mystery face cards on the waiting-for-opponent screen */
+.waiting-mystery--pair {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+/* ============================================================
+   Challenge Mode — Guess confirmation with two names
+   ============================================================ */
+
+/* Names row inside the guess confirmation panel */
+.guess-confirm-names {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.guess-confirm-and {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 400;
 }

@@ -64,11 +64,11 @@ public sealed class GameSessionService
         _sessions.TryGetValue(code.ToUpperInvariant().Trim(), out var s) ? s : null;
 
     /// <summary>
-    /// Records the specified player's Mystery Person selection.
-    /// Delegates to GameSession.SelectMysteryPerson; no-ops if session not found.
+    /// Records the specified player's two Mystery People selections for Challenge Mode.
+    /// Delegates to GameSession.SelectMysteryPeople; no-ops if session not found.
     /// </summary>
-    public void SelectMysteryPerson(string code, string playerToken, int characterId) =>
-        GetSession(code)?.SelectMysteryPerson(playerToken, characterId);
+    public void SelectMysteryPeople(string code, string playerToken, int id1, int id2) =>
+        GetSession(code)?.SelectMysteryPeople(playerToken, id1, id2);
 
     /// <summary>
     /// Passes the turn to the opposing player.
@@ -85,11 +85,12 @@ public sealed class GameSessionService
         GetSession(code)?.AskQuestion(playerToken, text);
 
     /// <summary>
-    /// Records the inactive player's yes/no answer to the pending question.
+    /// Records the inactive player's answer to the pending question.
+    /// In Challenge Mode the answer is one of "Both", "One of them", "Neither".
     /// No-ops if the session is not found, caller is active, or nothing is awaiting an answer.
     /// </summary>
-    public void AnswerQuestion(string code, string playerToken, bool yes) =>
-        GetSession(code)?.AnswerQuestion(playerToken, yes);
+    public void AnswerQuestion(string code, string playerToken, string answer) =>
+        GetSession(code)?.AnswerQuestion(playerToken, answer);
 
     /// <summary>
     /// Records that the active player has eliminated a character from their board.
@@ -99,11 +100,12 @@ public sealed class GameSessionService
         GetSession(code)?.EliminateCharacter(playerToken, characterId);
 
     /// <summary>
-    /// Resolves the round by the active player guessing the opponent's Mystery Person.
+    /// Resolves the round by the active player guessing both of the opponent's Mystery People.
+    /// Both guessed IDs must match (order-independent). Wrong guess on either = immediate loss.
     /// No-ops if the session is not found, caller is not active, or phase is not Playing.
     /// </summary>
-    public void MakeGuess(string code, string playerToken, int characterId) =>
-        GetSession(code)?.MakeGuess(playerToken, characterId);
+    public void MakeGuess(string code, string playerToken, int guessId1, int guessId2) =>
+        GetSession(code)?.MakeGuess(playerToken, guessId1, guessId2);
 
     /// <summary>
     /// Records a player's post-round decision (NewRound or EndGame).

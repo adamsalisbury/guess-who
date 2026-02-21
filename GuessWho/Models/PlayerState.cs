@@ -10,8 +10,16 @@ public sealed class PlayerState
     public required int Slot { get; init; }   // 1 or 2
     public bool IsConnected { get; set; } = true;
 
-    // Round state — populated once CharacterSelection is complete
-    public int? MysteryPersonId { get; set; }
+    // Round state — populated once CharacterSelection is complete (Challenge Mode: two people)
+
+    /// <summary>
+    /// The IDs of this player's chosen Mystery People for the current round.
+    /// Contains exactly 2 entries once selection is confirmed; empty before selection.
+    /// </summary>
+    public List<int> MysteryPersonIds { get; } = [];
+
+    /// <summary>True when the player has confirmed both Mystery People for the round.</summary>
+    public bool HasSelectedMysteryPeople => MysteryPersonIds.Count == 2;
 
     /// <summary>
     /// The shuffled order in which this player sees face cards on their board.
