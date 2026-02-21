@@ -1,5 +1,90 @@
 # Guess Who? — Completed Work Log
 
+## Iteration 13 — Face card visual polish
+**Completed**: 2026-02-21
+
+### What was done
+
+All changes are confined to `FaceCard.razor` — no model, service, or page changes required.
+
+#### SVG rendering improvements
+
+- **Skin tone variety** (`Id % 3`): Three variants chosen to read naturally as cartoon characters.
+  - 0 (light warm): face `#f5c5a3`, ears `#e8aa87`, nose `#c09080`
+  - 1 (medium): face `#e0a878`, ears `#c88a5a`, nose `#9a6840`
+  - 2 (deeper warm): face `#c47845`, ears `#a86030`, nose `#7a4828`
+  Distribution: 8 characters per variant (IDs 1–24 mod 3 divide evenly).
+
+- **Card background tint**: A full-card `<rect>` now fills the SVG background with a subtle
+  skin-tone-paired hue (`#1e2535` blue-grey / `#1e2820` green-grey / `#282018` amber-grey),
+  replacing the flat CSS `background: #1c2128` of the art container.
+
+- **Neck**: `<rect x="42" y="103" width="16" height="17" rx="4" fill="@SkinFill" />` drawn after
+  the face oval. Same fill → seamless blend at the chin. Grounds the face on the card.
+
+- **Inner ear detail**: Small inner ellipse (`rx=2 ry=3.2 opacity=0.6`) layered over each shadow
+  ear ellipse, giving a slight cartilage impression.
+
+- **Hair sheen**: A lighter-coloured arc path rendered on top of the hair cap
+  (`M 28 50 Q 50 38 72 50`, stroke-width 2.5, opacity 0.4). Long hair side panels get a matching
+  sheen line on each panel.
+
+- **Short hair temple patches**: Two small side ellipses (`cx=18/82 cy=66 rx=5 ry=7`) in `@HairFill`
+  rendered inside the `@if (!Character.Bald)` block for short-haired characters, adding volume where
+  the hair cap meets the ears.
+
+- **Long hair curved paths**: The old `<rect x="15/75" y="64" ...>` panels are replaced with `<path>`
+  arcs. Left: `M 14 66 Q 12 92 16 110 Q 19 116 24 112 Q 22 94 22 66 Z`. Right: mirror. The outer
+  edge has a subtle outward curve and the bottom tapers to a rounded tip.
+
+- **Thicker eyebrows**: `stroke-width` increased from 1.8 → 2.2 for better readability at `sm` size.
+
+- **Rosy cheeks** (two-layer): Outer ellipse `rgba(255,100,100,0.2)` (wider) + inner ellipse
+  `rgba(255,180,150,0.2)` (narrower) simulate a soft blush gradient without SVG `<defs>`.
+
+- **Big nose with nostrils**: Wide bridge arch (`M 41 76 Q 50 90 59 76`, stroke-width 1.8) plus two
+  nostril circles (`r=2.5`, skin-nose fill, opacity 0.45) each with a dark centre hole (`r=1.2`,
+  `rgba(0,0,0,0.3)`) for a clearly distinct nose shape.
+
+- **Mouth lip highlight**: Subtle upper-lip arc (`M 46 92 Q 50 90.5 54 92`,
+  `rgba(255,200,180,0.4)`, stroke-width 0.9) above the main smile curve.
+
+- **Facial hair differentiation**: `HasBeard` property — true when `FacialHair == true` and
+  hair colour is Black or Brown. Black/brown-haired characters render moustache + full beard;
+  others render moustache only. Mouth is hidden only when `HasBeard` is true (beard covers it).
+  Beard path: `M 38 92 Q 33 102 35 111 Q 43 117 50 117 Q 57 117 65 111 Q 67 102 62 92 Q 56 98 50 98 Q 44 98 38 92 Z`.
+
+- **Glasses lens glare**: Two small diagonal lines (`x1=29 y1=65 x2=31 y2=67` and `x1=59 y1=65
+  x2=61 y2=67`, `rgba(255,255,255,0.35)`, stroke-width 1) inside each lens.
+
+- **Hat variety** (`HasFedora = Id % 2 == 0`):
+  - **Fedora** (even Id): current dark hat with a brim edge highlight line at y=44.
+  - **Cap** (odd Id): `<ellipse cx=50 cy=32 rx=32 ry=20>` in a per-hair-colour fill
+    (navy/chestnut/forest green/crimson/indigo), plus a band rect and a sheen arc.
+  Characters with hats: Bernard(2)→fedora, Emma(5)→cap, Jake(10)→fedora, Kate(11)→cap,
+  Olivia(15)→cap, Sam(19)→cap, Victor(22)→fedora, Wendy(23)→cap.
+
+#### @code additions (new properties)
+- `SkinTone` (int, 0/1/2) — helper to avoid C# switch-expression precedence issue with `% 3`.
+- `SkinFill`, `SkinShadow`, `SkinNose`, `CardBgColor` — skin-tone colour variants.
+- `HairSheen` — lighter hair highlight colour per `HairColor`.
+- `HasBeard` (bool) — facial hair style selection.
+- `HasFedora` (bool) — hat style selection.
+- `CapFill`, `CapBand` — cap colour variants per hair colour.
+
+- Build result: **0 errors, 0 warnings**.
+
+### Notes
+- SVG `<defs>` gradients (`url(#id)`) were deliberately avoided: gradient IDs resolve globally
+  across the page DOM, so 24 face cards with the same gradient ID would all share the first one.
+  Flat colour fills (optionally stacked with transparency) achieve the same soft look safely.
+- C# switch expression precedence: `a % 3 switch { ... }` is parsed as `a % (3 switch { ... })`,
+  not `(a % 3) switch { ... }`. The `SkinTone` helper property is the clean fix.
+- All parameter signatures are unchanged — no call-site changes needed anywhere in the codebase.
+- The Gallery page (`/gallery`) gives a convenient single-view of all 24 polished face cards.
+
+---
+
 ## Iteration 12 — Suggested questions UI
 **Completed**: 2026-02-21
 

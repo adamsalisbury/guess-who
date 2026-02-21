@@ -1,55 +1,69 @@
 # Message to My Successor
 
-## Status after Iteration 12
-Suggested questions UI is complete. The chat input area in the active player's turn now has a
-collapsible "💡 Suggest a question" toggle button between the input row and the Make a Guess
-button. Clicking it reveals a flex-wrap panel of 14 pill-shaped chips, one per character attribute
-value (glasses, hat, facial hair, long hair, bald, rosy cheeks, big nose, blue eyes, brown eyes,
-blonde/red/white/black/brown hair). Clicking any chip populates `_chatInput` and closes the panel;
-the player can then edit or send immediately. The panel also closes automatically on turn change
-and after a question is sent.
+## Status after Iteration 13
+Face card visual polish is complete. The 24 character cards are now significantly more
+expressive and visually distinct. Build: 0 errors, 0 warnings.
 
-Build: 0 errors, 0 warnings.
+## What changed (summary)
+All changes were in `FaceCard.razor` only — single file, no server or model changes.
+
+New visual features:
+- 3 skin tone variants (light / medium / deeper warm) derived from `Id % 3`
+- Subtle card background tint per skin tone
+- Neck shape below the chin
+- Inner ear detail (small inner ellipse)
+- Hair sheen arc on the hair cap and side panels
+- Short hair temple patches for extra volume
+- Curved SVG path long hair panels (tapered, natural shape)
+- Thicker eyebrows (stroke-width 2.2)
+- Two-layer rosy cheeks for soft blush
+- Big nose now shows two nostrils with shadow holes
+- Lip highlight above the smile
+- Facial hair: black/brown hair → full beard + moustache; others → moustache only
+- Glasses lens glare (tiny diagonal highlights)
+- Hat variety: even-Id → fedora; odd-Id → rounded cap (colour matched to hair)
 
 ## What to do next
 
-Pick up **to-do.md item 1: Face card visual polish**.
+Pick up **to-do.md item 1: Challenge mode**.
 
 ### Goal
-Make the 24 character face cards more visually distinctive and expressive. Players spend most of
-the game looking at these cards, so improving their readability and character directly improves
-the gameplay experience.
+Each player secretly picks TWO Mystery People instead of one. This changes the question/answer
+dynamic (answers can be "Both", "Either", "Neither" for presence/absence attributes), and the
+win condition (correctly name both of the opponent's Mystery People).
 
 ### Suggested approach
 
-The current `FaceCard.razor` renders an SVG face programmatically from character attributes.
-Improve the rendering quality without adding external assets:
+This is a significant design and implementation change. Key decisions to make:
 
-1. **Richer facial features**: add eyebrows (colour matching hair), eyelids/pupils on the eye
-   circles, a mouth (smile curve via SVG path), and ear shapes.
+1. **Selection phase**: The CharacterSelection screen currently lets each player pick one character.
+   Extend it to allow two selections with a "You've selected 1 of 2" indicator. Confirm only
+   when both are chosen.
 
-2. **Skin tone variety**: add a `SkinTone` attribute (light, medium, dark) or derive a subtle
-   variation from the character ID so faces don't all look identical in base colour.
+2. **Answer options**: Replace the Yes/No buttons with **Yes (Both)**, **Yes (One)**, **No** — or
+   the simpler **Both / One / Neither** framing. Decide which is more intuitive for players.
+   Note: "Both" and "Neither" are clear; "One (but not both)" is slightly awkward — consider
+   labelling it "One of them" or just "One".
 
-3. **Hair with more shape**: current hair is a basic ellipse cap + rectangles for long hair.
-   Consider using SVG `path` arcs for a more natural outline — wavy top for curly, straight
-   lines for straight, etc.
+3. **Guessing**: The guess flow needs to change — active player must name both Mystery People.
+   Either via two sequential face clicks, or a "select two and confirm" pattern on the board.
+   A wrong guess on either (or failing to name both correctly) is an immediate loss.
 
-4. **Accessory polish**: hats currently rendered as simple polygons — add a hat band or brim
-   detail line. Glasses rendered as two circle outlines — add a nose bridge connector. Facial
-   hair (beard/moustache) currently a single shape — differentiate beard vs. moustache visually.
+4. **MysteryPersonId** on `PlayerState`: Currently `int?`. Change to a `List<int>` or
+   `(int First, int Second)?` value type. All downstream logic (`MakeGuess`, overlays, reveals)
+   needs to handle two characters.
 
-5. **Rosy cheeks**: currently two small pink ellipses — consider a soft radial gradient fill
-   inside the ellipse for a more blush-like look.
+5. **Board immunity**: Both Mystery Person cards must be immune from elimination on the own board.
+   The `IsMystery` flag on `FaceCard` needs to be set for both.
 
-6. **Big nose**: currently a small circle — consider a rounded triangle or wider ellipse for
-   better distinctiveness.
+6. **End-of-round reveal overlay**: Show both of each player's Mystery People (4 cards total).
+   The layout will need careful arrangement in `Game.razor.css`.
 
-### Implementation notes
-- All changes live in `FaceCard.razor` (SVG markup) — no model or server changes needed.
-- The `CharacterData.All` gallery page (`/gallery`) makes it easy to visually review all 24 at once.
-- Keep each SVG change incremental and test at all three sizes (sm, md, lg) after each change.
-- The coordinate system is `viewBox="0 0 100 120"`. See MEMORY.md for the key coordinate reference.
-- Size classes are controlled by the parent — do not hard-code pixel sizes in the SVG itself.
+7. **Server methods to update**: `SelectMysteryPerson` → `SelectMysteryPeople(token, id1, id2)`.
+   `MakeGuess(token, id1, id2)` → compare both against opponent's two choices.
 
-No special blockers. Good luck — this is a fun iteration.
+### Scope note
+This is the largest remaining feature. Consider whether to implement it as one iteration or
+split into: (a) selection + board immunity, and (b) guessing + round end reveal.
+
+No special blockers. Good luck!

@@ -64,7 +64,7 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 12)
+## Current state (after Iteration 13)
 - Landing page functional: name entry, New Game (creates session), Join Game (validates code, joins session)
 - Lobby page functional: both players shown by name, connection status, auto-navigation to game page
 - Both players auto-navigate to `/game/{Code}` when lobby is full
@@ -119,6 +119,22 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
   - When `IsMatchOver` and both pick "Play Again": `ExecuteNewRound` resets both `RoundWins` to 0
 - **Face elimination** (Iteration 8): active player clicks own board to flip faces down; Mystery Person immune. Opponent board syncs in real time.
 - **Turn countdown** (Iteration 7): `GameSession.CountdownStartedAt` set by `AnswerQuestion()`; client-side 500ms timer drives display and auto-fires `StartNextTurn` after 10s (active player only).
+- **Face card visual polish** (Iteration 13): `FaceCard.razor` rewritten with richer SVG rendering:
+  - **Skin tone variety** (`Id % 3`): light warm (`#f5c5a3`), medium (`#e0a878`), deeper warm (`#c47845`)
+  - **Card background tint**: subtle per-skin-tone background rect (`#1e2535` / `#1e2820` / `#282018`)
+  - **Neck**: rect below chin (same skin fill), drawn after face oval for seamless blend
+  - **Inner ear detail**: small inner ellipse in skin fill over the shadow ear ellipse
+  - **Hair sheen**: lighter arc path on top of the hair cap; also on long-hair side panels
+  - **Short hair temple patches**: side ellipses at cx=18/82 cy=66 for volume on short-haired characters
+  - **Long hair curved paths**: `<path>` arcs replace straight rects for more natural tapered locks
+  - **Thicker eyebrows**: stroke-width 2.2 (up from 1.8) for better readability at small size
+  - **Rosy cheeks**: two-layer soft ellipses (outer + inner highlight) for a blush effect
+  - **Big nose with nostrils**: wide arch + two nostril circles with shadow holes
+  - **Mouth lip highlight**: subtle upper-lip arc above the smile
+  - **Facial hair differentiation**: black/brown-haired characters get full beard + moustache; white/red/blonde get moustache only
+  - **Glasses lens glare**: small diagonal highlight line in each lens
+  - **Hat variety**: even-Id → fedora (current dark style + brim edge highlight); odd-Id → rounded cap (per-hair-colour fill + sheen arc)
+  - **`SkinTone` helper property** avoids C# switch expression precedence issue (`% 3 switch` is parsed as `% (3 switch{})`)
 - Build: **0 errors, 0 warnings**
 
 ## GameSession phase flow
@@ -154,3 +170,7 @@ Lobby → CharacterSelection → Playing ⇄ RoundEnd → GameEnd
 - `EndReason` property name avoids naming conflict with the `RoundEndReason` enum type in the same namespace.
 - `GetPostRoundDecision(token)` reads `_postRoundDecisions` without a lock — safe because reads happen after
   `StateChanged` fires (post-mutation) and the game has at most 2 players on 2 threads.
+- SVG gradient IDs (`url(#id)`) resolve globally across the page DOM, not per-SVG-element. FaceCard avoids
+  SVG `<defs>` gradients entirely and uses flat fill strings instead, preventing ID conflicts when 24+ cards render on one page.
+- C# switch expression precedence: `a % 3 switch { ... }` is parsed as `a % (3 switch { ... })`. Avoided by
+  introducing a `private int SkinTone => (Character?.Id ?? 0) % 3` helper property.
