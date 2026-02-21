@@ -4,12 +4,6 @@ Non-feature tasks: refactoring, bugs, performance, code quality.
 
 ---
 
-## Player reconnect / circuit recovery
-If a Blazor circuit drops and the player reloads, they lose their URL params (token). Options:
-- Store token in `sessionStorage` via JS interop on first load, read it back on reconnect.
-- Or derive a stable token from the session code + player name (simpler, slightly less secure).
-Implement before the game board iteration so disconnects don't break active games.
-
 ## Unit tests for game logic
 Add an xUnit project (`GuessWho.Tests`) and write unit tests for:
 - `GameSessionService.CreateSession` — generates valid codes, adds player 1
@@ -35,6 +29,14 @@ signed dev cert or just leave HTTP-only for development. Document the decision.
 ---
 
 ## Done
+
+### Player reconnect / circuit recovery (Iteration 17)
+`wwwroot/js/storage.js` ES module with `saveSession(code, name, token)`, `loadSession(code)`,
+`clearSession()` backed by `sessionStorage`. `Game.razor` imports the module in
+`OnAfterRenderAsync(firstRender)`: saves `{code, name, token}` when URL params are present; reads
+stored data and re-navigates to the full URL when params are missing. `ClearStoredSession()` helper
+clears the entry before navigating home on `GameEnd`. All JS interop errors swallowed silently for
+graceful degradation. Module loaded via `await JS.InvokeAsync<IJSObjectReference>("import", "./js/storage.js")`.
 
 ### Session lifecycle management (Iteration 16)
 `GameSession` now implements `IDisposable` (disposes `_postRoundTimeoutTimer`).

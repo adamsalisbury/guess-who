@@ -763,6 +763,7 @@ else
             // Navigate home immediately when the session enters GameEnd phase
             if (_session?.Phase == GamePhase.GameEnd)
             {
+                await ClearStoredSession();
                 Nav.NavigateTo("/");
                 return;
             }
@@ -1003,5 +1004,74 @@ else
         _countdownTimer?.Dispose();
         if (_session is not null)
             _session.StateChanged -= OnSessionStateChanged;
+    }
+
+    // ── Session persistence (reconnect recovery) ─────────────────────────
+
+    /// <summary>
+    /// On the first interactive render:
+    /// - If URL params (name + token) are present: persist them to sessionStorage so the
+    ///   player can recover their identity if they reload or the circuit drops.
+    /// - If URL params are missing: attempt to restore from sessionStorage and re-navigate
+    ///   to the full URL, recovering the session automatically.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            await using var module = await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./js/storage.js");
+
+            if (string.IsNullOrEmpty(MyToken) || string.IsNullOrEmpty(PlayerName))
+            {
+                // URL params are missing — try to restore from sessionStorage
+                var stored = await module.InvokeAsync<StoredSession?>("loadSession", Code);
+                if (stored is { Token.Length: > 0, Name.Length: > 0 })
+                {
+                    var url = $"/game/{Code}"
+                            + $"?name={Uri.EscapeDataString(stored.Name)}"
+                            + $"&token={stored.Token}";
+                    Nav.NavigateTo(url, replace: true);
+                }
+            }
+            else
+            {
+                // Params are present — save them for future reconnect
+                await module.InvokeVoidAsync("saveSession", Code, PlayerName, MyToken);
+            }
+        }
+        catch
+        {
+            // JS interop failure is non-critical — continue without sessionStorage support
+        }
+    }
+
+    /// <summary>
+    /// Clears the sessionStorage entry for this game.
+    /// Called when the session ends cleanly so stale data does not interfere with
+    /// future sessions in the same browser tab.
+    /// </summary>
+    private async Task ClearStoredSession()
+    {
+        try
+        {
+            await using var module = await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./js/storage.js");
+            await module.InvokeVoidAsync("clearSession");
+        }
+        catch
+        {
+            // Non-critical — swallow silently
+        }
+    }
+
+    /// <summary>Session data loaded from sessionStorage during reconnect recovery.</summary>
+    private sealed class StoredSession
+    {
+        public string Code  { get; set; } = "";
+        public string Name  { get; set; } = "";
+        public string Token { get; set; } = "";
     }
 }

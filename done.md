@@ -1,5 +1,52 @@
 # Guess Who? — Completed Work Log
 
+## Iteration 17 — Player Reconnect / Circuit Recovery
+**Completed**: 2026-02-21
+
+### What was done
+
+#### `wwwroot/js/storage.js` (new file)
+New ES module (`import`-style) with three exported functions:
+- `saveSession(code, name, token)` — stores `{ code, name, token }` as JSON in `sessionStorage`
+  under the key `guesswho_session`.
+- `loadSession(code)` — reads back the stored JSON; returns the parsed object only if `data.code`
+  matches the requested `code` AND both `name` and `token` are non-empty. Returns `null` otherwise.
+- `clearSession()` — removes the `guesswho_session` key from `sessionStorage`.
+All three functions wrap their operations in `try/catch` to silently handle browsers where
+`sessionStorage` is blocked (e.g. some private-browsing configurations).
+
+#### `Game.razor` — `OnAfterRenderAsync(firstRender)`
+Added a new lifecycle override that runs exactly once per interactive render:
+- **URL params present** (`PlayerName` and `MyToken` are non-empty): calls `saveSession` to persist
+  the player's identity for future reconnects.
+- **URL params missing** (`MyToken` or `PlayerName` is null/empty): calls `loadSession(Code)`.
+  If a matching stored session is found, navigates to `/game/{Code}?name={name}&token={token}`
+  with `replace: true` (no extra history entry). The page then reloads with correct params and
+  `OnInitialized` can look up the session and player normally.
+The JS module is imported via `await JS.InvokeAsync<IJSObjectReference>("import", "./js/storage.js")`.
+The `IJSObjectReference` is disposed via `await using`. The entire block is wrapped in a `try/catch` —
+any JS interop failure is silently swallowed, so the game continues normally without sessionStorage.
+
+#### `Game.razor` — `ClearStoredSession()` helper
+New private async method that imports `storage.js` and calls `clearSession()`. Called in
+`OnSessionStateChanged` immediately before `Nav.NavigateTo("/")` when the phase is `GameEnd`.
+This ensures that when a game ends cleanly, the stale session data is removed from sessionStorage
+so future game sessions in the same tab are not accidentally fed old reconnect data.
+
+#### `Game.razor` — `StoredSession` private class
+A minimal `sealed class` with `string Code`, `Name`, `Token` properties (mutable, with empty-string
+defaults). Used as the type argument for `module.InvokeAsync<StoredSession?>("loadSession", ...)`.
+System.Text.Json case-insensitive deserialization maps the JS camelCase keys to PascalCase properties.
+
+### Files changed
+- `GuessWho/wwwroot/js/storage.js` — **created**
+- `GuessWho/Components/Pages/Game.razor` — **modified** (3 additions + 1 change)
+
+### Build
+0 errors · 0 warnings
+
+---
+
 ## Iteration 16 — Session Lifecycle Management
 **Completed**: 2026-02-21
 

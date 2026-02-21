@@ -42,7 +42,10 @@ GuessWho/                  ← solution root (also git repo root)
 │   ├── Services/
 │   │   ├── GameSessionService.cs   ← singleton, owns all active sessions
 │   │   └── SessionCleanupService.cs ← BackgroundService, removes stale sessions every 10 min
-│   └── wwwroot/app.css            ← dark theme, gold accent, no Bootstrap dependency
+│   └── wwwroot/
+│       ├── app.css                ← dark theme, gold accent, no Bootstrap dependency
+│       └── js/
+│           └── storage.js         ← ES module: saveSession / loadSession / clearSession
 ├── project.md
 ├── to-do.md
 ├── to-do-technical.md
@@ -65,7 +68,13 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 16)
+## Current state (after Iteration 17)
+- **Player Reconnect / Circuit Recovery** (Iteration 17): `wwwroot/js/storage.js` ES module
+  (`saveSession` / `loadSession` / `clearSession` via `sessionStorage`). `Game.razor`
+  `OnAfterRenderAsync(firstRender)` saves `{code, name, token}` to sessionStorage when URL params
+  are present, or reads stored data and re-navigates to the full URL when params are missing.
+  `ClearStoredSession()` helper removes the entry on clean `GameEnd`. All JS interop errors swallowed
+  silently — feature degrades gracefully.
 - **Session Lifecycle Management** (Iteration 16): `GameSession` implements `IDisposable`;
   `LastActivityAt` (UTC) stamped on every state change; `GameSessionService.RemoveStaleSessions()`
   removes `GameEnd` and idle (> 2 h) sessions, calling `Dispose()` on each; new `SessionCleanupService`
@@ -155,7 +164,7 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
 - **Dead CSS removed** (Iteration 15): `.btn-yes`, `.btn-no`, `.chat-yn-buttons` purged from
   `Game.razor.css` — replaced by the three-button challenge mode row in Iteration 14.
 - **ARIA** (Iteration 15): Chat log has `role="log"`, `aria-live="polite"`, `aria-label`.
-- Build: **0 errors, 0 warnings**
+- Build: **0 errors, 0 warnings** (after Iteration 17)
 
 ## GameSession phase flow
 ```
@@ -181,7 +190,9 @@ Lobby → CharacterSelection → Playing ⇄ RoundEnd → GameEnd
 - No HTTPS redirect in dev (removed `app.UseHttpsRedirection()` from template to simplify local runs)
 - Session cleanup implemented via `SessionCleanupService` (Iteration 16): removes `GameEnd` sessions
   and sessions idle > 2 h every 10 minutes. Each removed session is `Dispose()`d.
-- No reconnect logic for dropped Blazor circuits (future: store token in sessionStorage, re-subscribe)
+- Reconnect recovery via `sessionStorage` (Iteration 17): `Game.razor` saves/restores `{code,name,token}`
+  in sessionStorage using an ES module (`wwwroot/js/storage.js`). Helps when URL params are missing on
+  reload. Does NOT recover server-side session state after a server restart (in-memory sessions are lost).
 - Bootstrap CSS is included in the template but not actively used — custom CSS in `app.css` is the design system
 - `GameSession` imports `GuessWho.Data` (for `CharacterData`) to populate `BoardOrder`. Acceptable for
   a single-project small game; would separate in a multi-project architecture.
