@@ -70,6 +70,13 @@ public sealed class GameSessionService
     public void SelectMysteryPerson(string code, string playerToken, int characterId) =>
         GetSession(code)?.SelectMysteryPerson(playerToken, characterId);
 
+    /// <summary>
+    /// Passes the turn to the opposing player.
+    /// No-ops if the session is not found or the caller is not the active player.
+    /// </summary>
+    public void StartNextTurn(string code, string playerToken) =>
+        GetSession(code)?.StartNextTurn(playerToken);
+
     /// <summary>Removes sessions that are empty or abandoned (no players for > 2 hours).</summary>
     public void RemoveSession(string code) =>
         _sessions.TryRemove(code.ToUpperInvariant().Trim(), out _);

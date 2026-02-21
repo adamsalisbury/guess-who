@@ -178,7 +178,17 @@ else if (_session.Phase == GamePhase.Playing)
                     <span class="score-value">@_session.Player2?.RoundWins</span>
                     <span class="score-name score-name--right">@_session.Player2?.Name</span>
                 </div>
-                <div class="turn-status">Game in progress…</div>
+                <div class="turn-status @(_isMyTurn ? "turn-status--active" : "turn-status--waiting")">
+                    @if (_isMyTurn)
+                    {
+                        <span class="turn-indicator-dot"></span>
+                        <span>Your turn, @(_me?.Name ?? "you")</span>
+                    }
+                    else
+                    {
+                        <span>Waiting for @(_opponent?.Name ?? "opponent")…</span>
+                    }
+                </div>
             </div>
 
             @* ── Mystery Person display ──────────────────────────── *@
@@ -200,11 +210,19 @@ else if (_session.Phase == GamePhase.Playing)
                     <p class="chat-placeholder">The game is afoot…</p>
                 </div>
                 <div class="chat-input-area">
-                    <input class="text-input chat-input"
-                           type="text"
-                           placeholder="Ask a yes/no question…"
-                           disabled />
-                    <button class="btn btn-primary chat-send-btn" disabled>Send</button>
+                    @if (_isMyTurn)
+                    {
+                        <button class="btn btn-secondary end-turn-btn" @onclick="EndTurn">
+                            End Turn
+                        </button>
+                    }
+                    <div class="chat-input-row">
+                        <input class="text-input chat-input"
+                               type="text"
+                               placeholder="@(_isMyTurn ? "Ask a yes/no question…" : "Waiting for your turn…")"
+                               disabled="@(!_isMyTurn)" />
+                        <button class="btn btn-primary chat-send-btn" disabled="@(!_isMyTurn)">Send</button>
+                    </div>
                 </div>
             </div>
 
@@ -234,6 +252,10 @@ else
     /// <summary>Card the player has clicked but not yet confirmed.</summary>
     private int? _pendingId;
 
+    /// <summary>True when it is this player's turn to act.</summary>
+    private bool _isMyTurn =>
+        _session is not null && MyToken is not null && _session.IsActivePlayer(MyToken);
+
     protected override void OnInitialized()
     {
         _session = GameSessionService.GetSession(Code);
@@ -256,6 +278,13 @@ else
             _opponent = _session?.GetOpponent(MyToken ?? "");
             StateHasChanged();
         });
+    }
+
+    /// <summary>Passes the turn to the opposing player.</summary>
+    private void EndTurn()
+    {
+        if (MyToken is not null)
+            GameSessionService.StartNextTurn(Code, MyToken);
     }
 
     private void SetPending(int characterId) => _pendingId = characterId;

@@ -269,6 +269,33 @@
     font-size: 0.82rem;
     color: var(--text-secondary);
     font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 200ms ease;
+}
+
+/* Active player — gold, bold emphasis */
+.turn-status--active {
+    color: var(--accent-gold);
+    font-weight: 700;
+}
+
+/* Inactive player — muted */
+.turn-status--waiting {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* Pulsing dot shown beside the active player's name */
+.turn-indicator-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-gold);
+    flex-shrink: 0;
+    animation: dotPulse 1.2s ease-in-out infinite;
 }
 
 /* ── Mystery Person panel ───────────────────────────────────── */
@@ -342,13 +369,20 @@
     text-align: center;
 }
 
-/* Text input row at the foot of the chat panel */
+/* Foot of the chat panel — stacks End Turn button above the input row */
 .chat-input-area {
     flex-shrink: 0;
     display: flex;
-    gap: 8px;
+    flex-direction: column;
+    gap: 6px;
     padding: 10px 12px;
     border-top: 1px solid var(--border-subtle);
+}
+
+/* Inner row: text input + Send button side by side */
+.chat-input-row {
+    display: flex;
+    gap: 8px;
 }
 
 .chat-input {
@@ -361,6 +395,23 @@
     flex-shrink: 0;
     padding: 0.5rem 1rem;
     font-size: 0.85rem;
+}
+
+/* End Turn — full width, secondary style, compact */
+.end-turn-btn {
+    width: 100%;
+    padding: 0.45rem 1rem;
+    font-size: 0.82rem;
+    letter-spacing: 0.03em;
+    border-color: var(--border-subtle);
+    color: var(--text-secondary);
+    transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+
+.end-turn-btn:hover {
+    border-color: var(--accent-gold);
+    color: var(--accent-gold);
+    background: rgba(240, 165, 0, 0.06);
 }
 
 /* ── Waiting Page ───────────────────────────────────────────── */

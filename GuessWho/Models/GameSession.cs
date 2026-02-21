@@ -16,6 +16,19 @@ public sealed class GameSession
     public GamePhase Phase { get; set; } = GamePhase.Lobby;
     public int RoundNumber { get; set; }
 
+    /// <summary>Token of the player whose turn it is. Empty string before the Playing phase begins.</summary>
+    public string ActivePlayerToken { get; private set; } = "";
+
+    /// <summary>
+    /// Whether a question has already been asked and answered this turn.
+    /// When true, the chat input is locked for the active player until the turn passes.
+    /// </summary>
+    public bool QuestionAsked { get; private set; }
+
+    /// <summary>Returns true if the specified token belongs to the currently active player.</summary>
+    public bool IsActivePlayer(string token) =>
+        !string.IsNullOrEmpty(token) && token == ActivePlayerToken;
+
     /// <summary>Raised whenever session state changes. Subscribers call StateHasChanged.</summary>
     public event EventHandler? StateChanged;
 
@@ -72,8 +85,29 @@ public sealed class GameSession
                 Phase = GamePhase.Playing;
                 RoundNumber = 1;
                 ShuffleBoardOrders();
+                // Player 1 always takes the first turn
+                ActivePlayerToken = Player1!.Token;
             }
 
+            NotifyStateChanged();
+        }
+    }
+
+    /// <summary>
+    /// Passes the turn to the opposing player and resets per-turn state.
+    /// No-ops if the caller is not the current active player (prevents double-fire).
+    /// </summary>
+    public void StartNextTurn(string callerToken)
+    {
+        lock (_lock)
+        {
+            if (callerToken != ActivePlayerToken) return;
+
+            ActivePlayerToken = ActivePlayerToken == Player1?.Token
+                ? Player2!.Token
+                : Player1!.Token;
+
+            QuestionAsked = false;
             NotifyStateChanged();
         }
     }
