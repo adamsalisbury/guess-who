@@ -1,5 +1,108 @@
 # Guess Who? — Completed Work Log
 
+## Iteration 14 — Challenge Mode
+**Completed**: 2026-02-21
+
+### What was done
+
+Challenge Mode is fully implemented. Every player now picks TWO Mystery People at the start
+of each round. The opponent must correctly identify both to win. A wrong guess on either
+(or failing to name both) is an immediate loss.
+
+#### Model changes
+
+- **`PlayerState.cs`**: Replaced `int? MysteryPersonId` with `List<int> MysteryPersonIds`.
+  Added `bool HasSelectedMysteryPeople => MysteryPersonIds.Count == 2`.
+
+#### `GameSession.cs`
+
+- **`SelectMysteryPeople(token, id1, id2)`**: Both IDs must be distinct. Records them and transitions
+  to Playing when both players have confirmed their pairs.
+- **`AnswerQuestion(token, string answer)`**: Now accepts a free-form string instead of `bool`.
+  In Challenge Mode the answer is one of `"Both"`, `"One of them"`, `"Neither"`. Server stores it
+  as the chat message text directly.
+- **`MakeGuess(token, id1, id2)`**: Order-independent `HashSet.SetEquals` against the opponent's
+  two Mystery Person IDs. Any mismatch triggers a loss. Guards `id1 != id2`.
+- **`EliminateCharacter`**: Guard changed from `player.MysteryPersonId == id` to
+  `player.MysteryPersonIds.Contains(id)` — both Mystery People are immune.
+- **`ResetRoundState`**: Clears `MysteryPersonIds` list instead of nullifying a single int.
+
+#### `GameSessionService.cs`
+
+- Updated passthroughs: `SelectMysteryPeople`, `AnswerQuestion(string)`, `MakeGuess(id1, id2)`.
+
+#### `FaceCard.razor` / `FaceCard.razor.css`
+
+- New `IsSelected` (`bool`) parameter: solid blue border + outer glow + 3px lift. Applied to
+  opponent board cards already selected for a pending two-person guess.
+- `title` attribute updated: "Click to deselect" when `IsSelected`.
+- CSS: `.face-card--selected` — persistent blue glow (no hover required, card is actively chosen).
+
+#### `Game.razor` — CharacterSelection phase
+
+- `_pendingId` (int?) → `_pendingIds` (List<int>, max 2). Toggling: click to add (if < 2), click
+  again to remove.
+- Footer shows:
+  - 0 chosen: hint "Click two characters … (0 / 2 chosen)"
+  - 1 chosen: filled slot (gold face card + name) + empty slot (dashed placeholder + "Choose one more…")
+    + progress chip "1 of 2 chosen" + Clear button
+  - 2 chosen: both slots filled + Confirm button labelled with both names + Change button
+- Waiting screen: two mystery face cards side by side (`.waiting-mystery--pair`).
+
+#### `Game.razor` — Playing phase
+
+- **Own board**: `IsMystery = _me.MysteryPersonIds.Contains(localId)` — both cards glow gold.
+- **Opponent board (guess mode)**:
+  - `_pendingGuessIds` (List<int>, max 2) replaces single `_pendingGuessId` (int?).
+  - Cards already in the list: `IsSelected=true`, clickable to deselect via `DeselectGuess(id)`.
+  - Cards that can be added (face-up, < 2 pending, not selected): `IsGuessable=true`, clickable
+    via `SelectForGuess(id)`.
+  - Board header shows `"— GUESS MODE (N/2 selected)"` live count.
+  - `GetGuessCallback(id, isOppEliminated, isSelected, canGuess)` — unified callback logic.
+- **Guess mode input area states**:
+  - 0 picks: "Click two faces on the opponent's board to guess" + Cancel
+  - 1 pick: "**[Name]** selected — click one more face" + Cancel
+  - 2 picks: Confirmation panel with both names joined by "&", warning text, Confirm/Cancel
+- **Answer buttons**: Yes/No replaced with three buttons:
+  - **Both** (green) — applies to both Mystery People
+  - **One of them** (gold) — applies to exactly one
+  - **Neither** (red) — applies to neither
+- **Mystery panel**: shows two `sm` FaceCards side by side (`.mystery-cards-row`), labelled
+  "Your Mystery People", with "Keep these secret from your opponent!".
+
+#### `Game.razor` — Round-end overlay
+
+- 4-card reveal layout: two player columns (`.round-end-reveal-player`) each containing a
+  row of two `sm` face cards (`.round-end-reveal-cards`).
+- Winner subtext updated: "…identified both Mystery People correctly!" vs "…guessed wrong".
+
+#### `Game.razor.css` — new / updated rules
+
+- `.mystery-cards-row` — flex row for the 2-card mystery panel.
+- `.selection-chosen-pair / -slot / -placeholder / --muted` — 2-pick footer layout.
+- `.selection-hint--progress` — gold "1 of 2" progress indicator.
+- `.round-end-reveal` redesigned: 2 player columns instead of 2 flat slots.
+- `.round-end-reveal-player`, `.round-end-reveal-player-label`, `.round-end-reveal-cards` — new.
+- `.chat-triple-buttons` / `.btn-both` / `.btn-one` / `.btn-neither` — three-way answer buttons.
+- `.waiting-mystery--pair` — flex row for waiting screen pair of cards.
+- `.guess-confirm-names`, `.guess-confirm-and` — two-name confirmation panel layout.
+
+- Build result: **0 errors, 0 warnings**.
+
+### Notes
+- `AnswerQuestion` now takes a raw string to keep the server model simple; the Razor UI enforces
+  the three valid values by only offering those three buttons. No enum was added.
+- `MakeGuess` uses `HashSet.SetEquals` — order-independent, handles deduplication at the model level.
+  The server also guards `id1 == id2` (same person picked twice) as a no-op.
+- `IsSelected` cards have a persistent blue glow (unlike `IsGuessable` which only shows on hover)
+  so players can clearly see their 2-pick state without hovering.
+- `_pendingIds` and `_pendingGuessIds` are both `List<int>` (not `HashSet`) to preserve insertion
+  order for deterministic display in the footer / confirmation panel.
+- Old `Yes`/`No` button CSS classes are still in the file but no longer used; they can be removed in a
+  future cleanup iteration.
+
+---
+
 ## Iteration 13 — Face card visual polish
 **Completed**: 2026-02-21
 

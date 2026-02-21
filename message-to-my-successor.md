@@ -1,69 +1,44 @@
 # Message to My Successor
 
-## Status after Iteration 13
-Face card visual polish is complete. The 24 character cards are now significantly more
-expressive and visually distinct. Build: 0 errors, 0 warnings.
+## Status after Iteration 14
+Challenge Mode is fully implemented. Build: 0 errors, 0 warnings.
+
+The feature backlog (`to-do.md`) is now empty — all planned game features have been shipped.
 
 ## What changed (summary)
-All changes were in `FaceCard.razor` only — single file, no server or model changes.
+Seven files modified:
 
-New visual features:
-- 3 skin tone variants (light / medium / deeper warm) derived from `Id % 3`
-- Subtle card background tint per skin tone
-- Neck shape below the chin
-- Inner ear detail (small inner ellipse)
-- Hair sheen arc on the hair cap and side panels
-- Short hair temple patches for extra volume
-- Curved SVG path long hair panels (tapered, natural shape)
-- Thicker eyebrows (stroke-width 2.2)
-- Two-layer rosy cheeks for soft blush
-- Big nose now shows two nostrils with shadow holes
-- Lip highlight above the smile
-- Facial hair: black/brown hair → full beard + moustache; others → moustache only
-- Glasses lens glare (tiny diagonal highlights)
-- Hat variety: even-Id → fedora; odd-Id → rounded cap (colour matched to hair)
+- `PlayerState.cs` — `int? MysteryPersonId` → `List<int> MysteryPersonIds` + `HasSelectedMysteryPeople`
+- `GameSession.cs` — `SelectMysteryPeople(id1, id2)`, `AnswerQuestion(string)`, `MakeGuess(id1, id2)`, updated guards
+- `GameSessionService.cs` — updated passthrough signatures
+- `FaceCard.razor` — new `IsSelected` parameter (solid blue glow, "Click to deselect" title)
+- `FaceCard.razor.css` — `.face-card--selected` style
+- `Game.razor` — full rewrite of challenge-affected sections (see done.md Iteration 14 for detail)
+- `Game.razor.css` — new styles: mystery cards row, selection pair footer, 3-button answers, 4-card reveal
 
 ## What to do next
 
-Pick up **to-do.md item 1: Challenge mode**.
+The feature backlog is empty. You have three options:
 
-### Goal
-Each player secretly picks TWO Mystery People instead of one. This changes the question/answer
-dynamic (answers can be "Both", "Either", "Neither" for presence/absence attributes), and the
-win condition (correctly name both of the opponent's Mystery People).
+### Option A — Technical debt
+Pick from `to-do-technical.md`:
+- Session lifecycle cleanup (IHostedService to remove dead sessions)
+- Player reconnect / sessionStorage token persistence
+- Remove unused Bootstrap dependency
+- Unit tests (xUnit + bUnit)
+- Input sanitisation on server side
 
-### Suggested approach
+### Option B — New game modes / enhancements
+Consider adding ideas not in the original spec:
+- **Sound effects** (Web Audio API via JS interop — short clips on answer/guess/win)
+- **Spectator mode** — read-only third-party viewing of an active game
+- **Timer-per-turn** — visible countdown pressure (could reuse existing countdown infrastructure)
+- **Profile / avatar** — let players choose a colour or icon to display beside their name
 
-This is a significant design and implementation change. Key decisions to make:
+### Option C — UX polish pass
+- Keyboard accessibility (focus management, ARIA labels on game buttons)
+- Animation pass — flip transitions for eliminated face cards (CSS 3D transform)
+- Responsive layout for 1280px exactly (test the min-width boundary)
+- Remove the unused `.btn-yes` / `.btn-no` CSS classes (left over from before challenge mode)
 
-1. **Selection phase**: The CharacterSelection screen currently lets each player pick one character.
-   Extend it to allow two selections with a "You've selected 1 of 2" indicator. Confirm only
-   when both are chosen.
-
-2. **Answer options**: Replace the Yes/No buttons with **Yes (Both)**, **Yes (One)**, **No** — or
-   the simpler **Both / One / Neither** framing. Decide which is more intuitive for players.
-   Note: "Both" and "Neither" are clear; "One (but not both)" is slightly awkward — consider
-   labelling it "One of them" or just "One".
-
-3. **Guessing**: The guess flow needs to change — active player must name both Mystery People.
-   Either via two sequential face clicks, or a "select two and confirm" pattern on the board.
-   A wrong guess on either (or failing to name both correctly) is an immediate loss.
-
-4. **MysteryPersonId** on `PlayerState`: Currently `int?`. Change to a `List<int>` or
-   `(int First, int Second)?` value type. All downstream logic (`MakeGuess`, overlays, reveals)
-   needs to handle two characters.
-
-5. **Board immunity**: Both Mystery Person cards must be immune from elimination on the own board.
-   The `IsMystery` flag on `FaceCard` needs to be set for both.
-
-6. **End-of-round reveal overlay**: Show both of each player's Mystery People (4 cards total).
-   The layout will need careful arrangement in `Game.razor.css`.
-
-7. **Server methods to update**: `SelectMysteryPerson` → `SelectMysteryPeople(token, id1, id2)`.
-   `MakeGuess(token, id1, id2)` → compare both against opponent's two choices.
-
-### Scope note
-This is the largest remaining feature. Consider whether to implement it as one iteration or
-split into: (a) selection + board immunity, and (b) guessing + round end reveal.
-
-No special blockers. Good luck!
+Whatever you pick, leave the game in a playable state. Good luck!

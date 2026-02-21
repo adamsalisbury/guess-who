@@ -64,7 +64,8 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 13)
+## Current state (after Iteration 14)
+- **Challenge Mode** (Iteration 14): each player picks TWO Mystery People; answers are Both/One of them/Neither; guessing requires naming both; round-end overlay shows 4 cards (2 per player).
 - Landing page functional: name entry, New Game (creates session), Join Game (validates code, joins session)
 - Lobby page functional: both players shown by name, connection status, auto-navigation to game page
 - Both players auto-navigate to `/game/{Code}` when lobby is full
@@ -119,6 +120,7 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
   - When `IsMatchOver` and both pick "Play Again": `ExecuteNewRound` resets both `RoundWins` to 0
 - **Face elimination** (Iteration 8): active player clicks own board to flip faces down; Mystery Person immune. Opponent board syncs in real time.
 - **Turn countdown** (Iteration 7): `GameSession.CountdownStartedAt` set by `AnswerQuestion()`; client-side 500ms timer drives display and auto-fires `StartNextTurn` after 10s (active player only).
+- **Challenge Mode** (Iteration 14): `PlayerState.MysteryPersonIds` (List<int>, 2 per round); `SelectMysteryPeople(token, id1, id2)`; `AnswerQuestion(token, string answer)` → "Both"/"One of them"/"Neither"; `MakeGuess(token, id1, id2)` → SetEquals comparison; 2-pick selection UI; 3-button answer row; `IsSelected` FaceCard parameter for picked cards; mystery panel shows 2 sm cards; 4-card round-end reveal (2 per player).
 - **Face card visual polish** (Iteration 13): `FaceCard.razor` rewritten with richer SVG rendering:
   - **Skin tone variety** (`Id % 3`): light warm (`#f5c5a3`), medium (`#e0a878`), deeper warm (`#c47845`)
   - **Card background tint**: subtle per-skin-tone background rect (`#1e2535` / `#1e2820` / `#282018`)
@@ -147,11 +149,11 @@ Lobby → CharacterSelection → Playing ⇄ RoundEnd → GameEnd
 | Method | Phase guard | Effect |
 |---|---|---|
 | `AddPlayer` | Lobby | Adds player; P2 join → CharacterSelection |
-| `SelectMysteryPerson` | CharacterSelection | Both chosen → Playing + shuffle boards |
+| `SelectMysteryPeople` | CharacterSelection | Both players have 2 chosen → Playing + shuffle boards |
 | `AskQuestion` | Playing, active player | Posts question, sets `QuestionAsked` |
 | `AnswerQuestion` | Playing, inactive player | Posts answer, starts countdown |
 | `EliminateCharacter` | Playing, active player | Flips face on own board |
-| `MakeGuess` | Playing, active player | Resolves round → RoundEnd; sets IsMatchOver on 5 wins |
+| `MakeGuess` | Playing, active player | Takes 2 IDs; SetEquals vs opponent's 2 Mystery People; resolves round → RoundEnd; sets IsMatchOver on 5 wins |
 | `MakePostRoundDecision` | RoundEnd | Records player's choice; executes on consensus or 60s timeout |
 | `StartNextTurn` | Playing | Flips active player, resets per-turn state |
 | `ExecuteNewRound` (private) | called from MakePostRoundDecision | Resets round → CharacterSelection; resets scores if IsMatchOver |

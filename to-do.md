@@ -4,9 +4,7 @@ Items are listed in priority order. Pick the top item each iteration.
 
 ---
 
-## 1. Challenge mode ← NEXT
-Each player picks two Mystery People. Questions may have "Both"/"Either" answers. Modified win
-condition: correctly identify both of the opponent's Mystery People.
+*All planned features have been implemented. The backlog is empty.*
 
 ---
 
@@ -24,3 +22,5 @@ condition: correctly identify both of the opponent's Mystery People.
 - **Face card visual polish** — done in Iteration 13. Skin tone variety, hair sheen, curved long hair,
   short hair temple patches, beard vs moustache, hat variety (fedora/cap), nostrils, rosy cheek layers,
   inner ears, neck, glasses glare, card background tint.
+- **Challenge mode** — done in Iteration 14. Each player picks two Mystery People. Answer options are
+  Both / One of them / Neither. Guessing requires naming both. 4-card reveal in round-end overlay.
