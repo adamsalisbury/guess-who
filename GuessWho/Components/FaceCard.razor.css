@@ -9,24 +9,22 @@
     flex-direction: column;
     align-items: center;
     gap: 5px;
-    transition: transform 150ms ease, opacity 150ms ease, filter 150ms ease;
+    transition: transform 150ms ease, filter 150ms ease;
     user-select: none;
 }
 
-/* ── Art container (holds SVG) ── */
+/* ── Art container — perspective container for the 3D flip ── */
 .face-card__art {
     border-radius: 8px;
     overflow: hidden;
     background: #1c2128;
     border: 2px solid #30363d;
     transition: border-color 150ms ease, box-shadow 150ms ease;
-    line-height: 0; /* remove inline-block gap */
-}
-
-.face-card__art svg {
-    display: block;
-    width: 100%;
-    height: auto;
+    line-height: 0;
+    /* Aspect ratio matches SVG viewBox (100 wide : 120 tall) so height is always correct */
+    aspect-ratio: 100 / 120;
+    /* 3D perspective — the vanishing point for the card flip */
+    perspective: 700px;
 }
 
 /* ── Size variants ── */
@@ -44,6 +42,46 @@
     width: 148px;
     border-radius: 10px;
     border-width: 2.5px;
+}
+
+/* ── 3D flip inner container ──────────────────────────────── */
+
+/* Holds front and back faces; rotates on elimination */
+.face-card__flip-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    /* Smooth easing inspired by a physical card turn */
+    transition: transform 480ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Flipped state — card has been eliminated or character is unknown */
+.face-card__flip-inner--flipped {
+    transform: rotateY(180deg);
+}
+
+/* ── Front and back face panels ── */
+
+/* Both faces are absolutely positioned and fill the flip container */
+.face-card__face {
+    position: absolute;
+    inset: 0;
+    /* Each face is only visible from one side */
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+/* Back face is pre-rotated 180deg so it appears face-out when the wrapper has flipped */
+.face-card__back {
+    transform: rotateY(180deg);
+}
+
+/* SVGs fill their face container completely */
+.face-card__art svg {
+    display: block;
+    width: 100%;
+    height: 100%;
 }
 
 /* ── Name label ── */
@@ -88,9 +126,11 @@
 }
 
 /* ── Face-down / eliminated ── */
+/* Opacity and grayscale are delayed so they only settle in after the 3D flip completes */
 .face-card--down {
     opacity: 0.38;
     filter: grayscale(0.5);
+    transition: opacity 180ms ease 460ms, filter 180ms ease 460ms;
 }
 
 .face-card--down .face-card__art {

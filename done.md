@@ -1,5 +1,71 @@
 # Guess Who? — Completed Work Log
 
+## Iteration 15 — UX Animation & Polish Pass
+**Completed**: 2026-02-21
+
+### What was done
+
+#### 3D flip animation for eliminated face cards
+
+`FaceCard.razor` was restructured to support a CSS 3D card-flip animation. When a player
+eliminates a character, the face card now smoothly rotates 180° on the Y-axis, revealing
+the eliminated (crossed-out) reverse side — like physically flipping a card in the real game.
+
+**HTML restructuring (`FaceCard.razor`):**
+- `.face-card__art` now acts as the `perspective` container (`perspective: 700px`).
+- A new `.face-card__flip-inner` div sits inside, with `transform-style: preserve-3d` and
+  `transition: transform 480ms cubic-bezier(0.4, 0, 0.2, 1)`.
+- Two child divs: `.face-card__front` (character illustration) and `.face-card__back`
+  (crossed-out eliminated pattern), both `position: absolute; inset: 0; backface-visibility: hidden`.
+- `.face-card__back` is pre-rotated `rotateY(180deg)` so it appears face-out when the wrapper flips.
+- When `FaceDown || Character is null`, the class `face-card__flip-inner--flipped` is applied,
+  rotating the inner div `rotateY(180deg)` — which shows the back and hides the front.
+- Both front and back SVGs are always in the DOM; `backface-visibility: hidden` ensures only
+  the correct face is visible at any time. `aria-hidden` keeps the invisible face out of the
+  accessibility tree.
+
+**CSS changes (`FaceCard.razor.css`):**
+- `.face-card__art` gains `aspect-ratio: 100 / 120` (matching the SVG viewBox ratio) so the
+  flip-inner can use `height: 100%` relative to a defined container height.
+- `.face-card__art svg` updated to `height: 100%` (was `height: auto`) since SVGs now fill their
+  absolutely-positioned face panels.
+- `opacity` and `filter` transitions on `.face-card--down` are delayed by 460ms so they only
+  settle in after the 3D flip completes: `transition: opacity 180ms ease 460ms, filter 180ms ease 460ms`.
+- `.face-card` no longer lists `opacity` in its base transition (moved to `--down` with delay).
+- Cards that load already-eliminated (e.g., on reconnect) do not animate — CSS transitions only
+  trigger on property changes after initial render.
+
+#### Dead CSS removed (`Game.razor.css`)
+Removed 40 lines of never-used CSS left over from before Challenge Mode:
+`.chat-yn-buttons`, `.btn-yes`, `.btn-no` (and their hover states). These were replaced by
+`.chat-triple-buttons`, `.btn-both`, `.btn-one`, `.btn-neither` in Iteration 14 but the old
+rules were never cleaned up.
+
+#### Bootstrap dependency removed
+- Removed `<link rel="stylesheet" href="bootstrap/bootstrap.min.css" />` from `App.razor`.
+- Deleted `wwwroot/bootstrap/` folder (bootstrap.min.css + .map, ~200 KB).
+- The project uses exclusively `app.css` and Blazor-scoped component styles. No Bootstrap
+  classes are referenced anywhere in the codebase.
+
+#### ARIA improvements (`Game.razor`)
+- Chat log div now has `role="log"` (semantic chat-log landmark) and `aria-live="polite"`
+  (screen readers announce new messages) and `aria-label="Game chat log"`.
+
+- Build result: **0 errors, 0 warnings**.
+
+### Notes
+- Both front and back SVG faces always render in the DOM (~96 SVG instances for 48 cards on
+  the game board). Browser handles static SVG efficiently; no measurable performance impact.
+- SVG gradient IDs and `backface-visibility` are two separate "global page scope" concerns.
+  Gradient IDs are still avoided (see Iteration 13 notes). `backface-visibility` is per-element
+  and works correctly regardless of how many instances share the same class.
+- The 480ms flip duration was chosen to feel deliberate (like a physical card turn) without
+  being slow. The cubic-bezier(0.4, 0, 0.2, 1) easing gives a slight deceleration at the end.
+- `face-card--down` opacity/filter delay (460ms) is intentionally just before the flip end
+  (480ms) so the dim effect appears as the card settles, not fighting the flip animation.
+
+---
+
 ## Iteration 14 — Challenge Mode
 **Completed**: 2026-02-21
 

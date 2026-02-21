@@ -1,156 +1,169 @@
 @using GuessWho.Models
 
-<div class="face-card face-card--@Size @(FaceDown ? "face-card--down" : "") @(IsMystery ? "face-card--mystery" : "") @(IsEliminatable ? "face-card--eliminatable" : "") @(IsGuessable ? "face-card--guessable" : "") @(IsSelected ? "face-card--selected" : "")"
+<div class="face-card face-card--@Size @(FaceDown || Character is null ? "face-card--down" : "") @(IsMystery ? "face-card--mystery" : "") @(IsEliminatable ? "face-card--eliminatable" : "") @(IsGuessable ? "face-card--guessable" : "") @(IsSelected ? "face-card--selected" : "")"
      @onclick="HandleClick"
      style="@(OnClick.HasDelegate ? "cursor:pointer" : "")"
      title="@(IsEliminatable ? "Click to eliminate" : IsSelected ? "Click to deselect" : IsGuessable ? "Click to select for guess" : null)"
 >
 
     <div class="face-card__art">
-        <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg"
-             aria-label="@(FaceDown ? "Eliminated character" : Character?.Name ?? "Unknown")">
+        <div class="face-card__flip-inner @(FaceDown || Character is null ? "face-card__flip-inner--flipped" : "")">
 
-            @if (FaceDown || Character is null)
-            {
-                @* ── Face-down / eliminated state ────────────────────────────── *@
-                <rect x="4" y="4" width="92" height="112" rx="7" fill="#161b22" />
-                <rect x="8" y="8" width="84" height="104" rx="5" fill="#1c2128" />
-                <line x1="28" y1="36" x2="72" y2="84" stroke="#30363d" stroke-width="2.5" stroke-linecap="round" />
-                <line x1="72" y1="36" x2="28" y2="84" stroke="#30363d" stroke-width="2.5" stroke-linecap="round" />
-            }
-            else
-            {
-                @* ── Card background (skin-tinted, per character) ────────────── *@
-                <rect x="0" y="0" width="100" height="120" fill="@CardBgColor" />
+            @* ── Front face (character illustration) ──────────────────────────── *@
+            <div class="face-card__face face-card__front"
+                 aria-hidden="@(FaceDown || Character is null ? "true" : null)">
+                <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg"
+                     aria-label="@(Character?.Name ?? "")">
 
-                @* ── Long hair side panels (behind face) ─────────────────────── *@
-                @if (!Character.Bald && Character.HairLength == HairLength.Long)
-                {
-                    <path d="M 14 66 Q 12 92 16 110 Q 19 116 24 112 Q 22 94 22 66 Z" fill="@HairFill" />
-                    <path d="M 86 66 Q 88 92 84 110 Q 81 116 76 112 Q 78 94 78 66 Z" fill="@HairFill" />
-                    <path d="M 15 70 Q 14 92 16 108" stroke="@HairSheen" stroke-width="1.5" fill="none" opacity="0.5" stroke-linecap="round" />
-                    <path d="M 85 70 Q 86 92 84 108" stroke="@HairSheen" stroke-width="1.5" fill="none" opacity="0.5" stroke-linecap="round" />
-                }
-
-                @* ── Hair cap (behind face) ───────────────────────────────────── *@
-                @if (!Character.Bald)
-                {
-                    <ellipse cx="50" cy="60" rx="35" ry="33" fill="@HairFill" />
-                    <path d="M 28 50 Q 50 38 72 50" stroke="@HairSheen" stroke-width="2.5" fill="none" opacity="0.4" stroke-linecap="round" />
-                    @if (Character.HairLength == HairLength.Short)
+                    @if (Character is not null)
                     {
-                        <ellipse cx="18" cy="66" rx="5" ry="7" fill="@HairFill" />
-                        <ellipse cx="82" cy="66" rx="5" ry="7" fill="@HairFill" />
+                        @* ── Card background (skin-tinted, per character) ────────────── *@
+                        <rect x="0" y="0" width="100" height="120" fill="@CardBgColor" />
+
+                        @* ── Long hair side panels (behind face) ─────────────────────── *@
+                        @if (!Character.Bald && Character.HairLength == HairLength.Long)
+                        {
+                            <path d="M 14 66 Q 12 92 16 110 Q 19 116 24 112 Q 22 94 22 66 Z" fill="@HairFill" />
+                            <path d="M 86 66 Q 88 92 84 110 Q 81 116 76 112 Q 78 94 78 66 Z" fill="@HairFill" />
+                            <path d="M 15 70 Q 14 92 16 108" stroke="@HairSheen" stroke-width="1.5" fill="none" opacity="0.5" stroke-linecap="round" />
+                            <path d="M 85 70 Q 86 92 84 108" stroke="@HairSheen" stroke-width="1.5" fill="none" opacity="0.5" stroke-linecap="round" />
+                        }
+
+                        @* ── Hair cap (behind face) ───────────────────────────────────── *@
+                        @if (!Character.Bald)
+                        {
+                            <ellipse cx="50" cy="60" rx="35" ry="33" fill="@HairFill" />
+                            <path d="M 28 50 Q 50 38 72 50" stroke="@HairSheen" stroke-width="2.5" fill="none" opacity="0.4" stroke-linecap="round" />
+                            @if (Character.HairLength == HairLength.Short)
+                            {
+                                <ellipse cx="18" cy="66" rx="5" ry="7" fill="@HairFill" />
+                                <ellipse cx="82" cy="66" rx="5" ry="7" fill="@HairFill" />
+                            }
+                        }
+
+                        @* ── Face oval ────────────────────────────────────────────────── *@
+                        <ellipse cx="50" cy="73" rx="29" ry="34" fill="@SkinFill" />
+
+                        @* ── Neck (drawn after face so it blends seamlessly) ─────────── *@
+                        <rect x="42" y="103" width="16" height="17" rx="4" fill="@SkinFill" />
+
+                        @* ── Ears + inner ear detail ──────────────────────────────────── *@
+                        <ellipse cx="21" cy="73" rx="4" ry="6" fill="@SkinShadow" />
+                        <ellipse cx="79" cy="73" rx="4" ry="6" fill="@SkinShadow" />
+                        <ellipse cx="21" cy="73" rx="2" ry="3.2" fill="@SkinFill" opacity="0.6" />
+                        <ellipse cx="79" cy="73" rx="2" ry="3.2" fill="@SkinFill" opacity="0.6" />
+
+                        @* ── Rosy cheeks ──────────────────────────────────────────────── *@
+                        @if (Character.RosyCheeks)
+                        {
+                            <ellipse cx="28" cy="80" rx="9" ry="5" fill="rgba(255,100,100,0.2)" />
+                            <ellipse cx="72" cy="80" rx="9" ry="5" fill="rgba(255,100,100,0.2)" />
+                            <ellipse cx="27" cy="79" rx="5" ry="3" fill="rgba(255,180,150,0.2)" />
+                            <ellipse cx="71" cy="79" rx="5" ry="3" fill="rgba(255,180,150,0.2)" />
+                        }
+
+                        @* ── Eyebrows ─────────────────────────────────────────────────── *@
+                        <path d="M 31 63 Q 37 60 43 62" stroke="@BrowFill" stroke-width="2.2" fill="none" stroke-linecap="round" />
+                        <path d="M 57 62 Q 63 60 69 63" stroke="@BrowFill" stroke-width="2.2" fill="none" stroke-linecap="round" />
+
+                        @* ── Eye whites ───────────────────────────────────────────────── *@
+                        <ellipse cx="37" cy="68" rx="5.5" ry="4.5" fill="white" />
+                        <ellipse cx="63" cy="68" rx="5.5" ry="4.5" fill="white" />
+
+                        @* ── Irises ───────────────────────────────────────────────────── *@
+                        <circle cx="37" cy="68" r="3.2" fill="@EyeFill" />
+                        <circle cx="63" cy="68" r="3.2" fill="@EyeFill" />
+
+                        @* ── Pupils ───────────────────────────────────────────────────── *@
+                        <circle cx="37" cy="68" r="1.6" fill="#0d0d0d" />
+                        <circle cx="63" cy="68" r="1.6" fill="#0d0d0d" />
+
+                        @* ── Eye highlights ───────────────────────────────────────────── *@
+                        <circle cx="38.5" cy="66.5" r="0.9" fill="white" />
+                        <circle cx="64.5" cy="66.5" r="0.9" fill="white" />
+
+                        @* ── Nose ─────────────────────────────────────────────────────── *@
+                        @if (Character.BigNose)
+                        {
+                            <path d="M 41 76 Q 50 90 59 76" stroke="@SkinNose" stroke-width="1.8" fill="none" stroke-linecap="round" />
+                            <circle cx="45" cy="85" r="2.5" fill="@SkinNose" opacity="0.45" />
+                            <circle cx="55" cy="85" r="2.5" fill="@SkinNose" opacity="0.45" />
+                            <circle cx="45" cy="85" r="1.2" fill="rgba(0,0,0,0.3)" />
+                            <circle cx="55" cy="85" r="1.2" fill="rgba(0,0,0,0.3)" />
+                        }
+                        else
+                        {
+                            <path d="M 47 79 Q 50 83 53 79" stroke="@SkinNose" stroke-width="1.2" fill="none" stroke-linecap="round" />
+                        }
+
+                        @* ── Mouth (hidden when full beard covers chin) ───────────────── *@
+                        @if (!Character.FacialHair || !HasBeard)
+                        {
+                            <path d="M 43 93 Q 50 99 57 93" stroke="#b07070" stroke-width="1.5" fill="none" stroke-linecap="round" />
+                            <path d="M 46 92 Q 50 90.5 54 92" stroke="rgba(255,200,180,0.4)" stroke-width="0.9" fill="none" stroke-linecap="round" />
+                        }
+
+                        @* ── Facial hair ──────────────────────────────────────────────── *@
+                        @if (Character.FacialHair)
+                        {
+                            <path d="M 44 87 Q 47 92 50 90 Q 53 92 56 87 Q 53 85 50 86 Q 47 85 44 87 Z"
+                                  fill="@FacialHairFill" />
+                            @if (HasBeard)
+                            {
+                                <path d="M 38 92 Q 33 102 35 111 Q 43 117 50 117 Q 57 117 65 111 Q 67 102 62 92 Q 56 98 50 98 Q 44 98 38 92 Z"
+                                      fill="@FacialHairFill" opacity="0.92" />
+                            }
+                        }
+
+                        @* ── Glasses ──────────────────────────────────────────────────── *@
+                        @if (Character.Glasses)
+                        {
+                            <rect x="26" y="63" width="18" height="12" rx="4"
+                                  fill="rgba(180,220,255,0.12)" stroke="#9ab3c8" stroke-width="1.5" />
+                            <rect x="56" y="63" width="18" height="12" rx="4"
+                                  fill="rgba(180,220,255,0.12)" stroke="#9ab3c8" stroke-width="1.5" />
+                            <line x1="44" y1="69" x2="56" y2="69" stroke="#9ab3c8" stroke-width="1.5" />
+                            <line x1="26" y1="68" x2="19" y2="67" stroke="#9ab3c8" stroke-width="1.5" />
+                            <line x1="74" y1="68" x2="81" y2="67" stroke="#9ab3c8" stroke-width="1.5" />
+                            <line x1="29" y1="65" x2="31" y2="67" stroke="rgba(255,255,255,0.35)" stroke-width="1" stroke-linecap="round" />
+                            <line x1="59" y1="65" x2="61" y2="67" stroke="rgba(255,255,255,0.35)" stroke-width="1" stroke-linecap="round" />
+                        }
+
+                        @* ── Hat (topmost layer — covers hair) ───────────────────────── *@
+                        @if (Character.Hat)
+                        {
+                            @if (HasFedora)
+                            {
+                                <rect x="26" y="14" width="48" height="31" rx="5" fill="#2a2a2a" />
+                                <rect x="26" y="40" width="48" height="5" fill="#c05a10" />
+                                <rect x="13" y="43" width="74" height="9" rx="4" fill="#2a2a2a" />
+                                <line x1="15" y1="44" x2="85" y2="44" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+                            }
+                            else
+                            {
+                                <ellipse cx="50" cy="32" rx="32" ry="20" fill="@CapFill" />
+                                <rect x="18" y="43" width="64" height="8" rx="3" fill="@CapBand" />
+                                <path d="M 28 28 Q 50 18 72 28" stroke="rgba(255,255,255,0.15)" stroke-width="2" fill="none" stroke-linecap="round" />
+                            }
+                        }
                     }
-                }
 
-                @* ── Face oval ────────────────────────────────────────────────── *@
-                <ellipse cx="50" cy="73" rx="29" ry="34" fill="@SkinFill" />
+                </svg>
+            </div>
 
-                @* ── Neck (drawn after face so it blends seamlessly) ─────────── *@
-                <rect x="42" y="103" width="16" height="17" rx="4" fill="@SkinFill" />
+            @* ── Back face (eliminated / face-down state) ──────────────────────── *@
+            <div class="face-card__face face-card__back"
+                 aria-hidden="@(FaceDown || Character is null ? null : "true")">
+                <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg"
+                     aria-label="Eliminated">
+                    <rect x="4" y="4" width="92" height="112" rx="7" fill="#161b22" />
+                    <rect x="8" y="8" width="84" height="104" rx="5" fill="#1c2128" />
+                    <line x1="28" y1="36" x2="72" y2="84" stroke="#30363d" stroke-width="2.5" stroke-linecap="round" />
+                    <line x1="72" y1="36" x2="28" y2="84" stroke="#30363d" stroke-width="2.5" stroke-linecap="round" />
+                </svg>
+            </div>
 
-                @* ── Ears + inner ear detail ──────────────────────────────────── *@
-                <ellipse cx="21" cy="73" rx="4" ry="6" fill="@SkinShadow" />
-                <ellipse cx="79" cy="73" rx="4" ry="6" fill="@SkinShadow" />
-                <ellipse cx="21" cy="73" rx="2" ry="3.2" fill="@SkinFill" opacity="0.6" />
-                <ellipse cx="79" cy="73" rx="2" ry="3.2" fill="@SkinFill" opacity="0.6" />
-
-                @* ── Rosy cheeks ──────────────────────────────────────────────── *@
-                @if (Character.RosyCheeks)
-                {
-                    <ellipse cx="28" cy="80" rx="9" ry="5" fill="rgba(255,100,100,0.2)" />
-                    <ellipse cx="72" cy="80" rx="9" ry="5" fill="rgba(255,100,100,0.2)" />
-                    <ellipse cx="27" cy="79" rx="5" ry="3" fill="rgba(255,180,150,0.2)" />
-                    <ellipse cx="71" cy="79" rx="5" ry="3" fill="rgba(255,180,150,0.2)" />
-                }
-
-                @* ── Eyebrows ─────────────────────────────────────────────────── *@
-                <path d="M 31 63 Q 37 60 43 62" stroke="@BrowFill" stroke-width="2.2" fill="none" stroke-linecap="round" />
-                <path d="M 57 62 Q 63 60 69 63" stroke="@BrowFill" stroke-width="2.2" fill="none" stroke-linecap="round" />
-
-                @* ── Eye whites ───────────────────────────────────────────────── *@
-                <ellipse cx="37" cy="68" rx="5.5" ry="4.5" fill="white" />
-                <ellipse cx="63" cy="68" rx="5.5" ry="4.5" fill="white" />
-
-                @* ── Irises ───────────────────────────────────────────────────── *@
-                <circle cx="37" cy="68" r="3.2" fill="@EyeFill" />
-                <circle cx="63" cy="68" r="3.2" fill="@EyeFill" />
-
-                @* ── Pupils ───────────────────────────────────────────────────── *@
-                <circle cx="37" cy="68" r="1.6" fill="#0d0d0d" />
-                <circle cx="63" cy="68" r="1.6" fill="#0d0d0d" />
-
-                @* ── Eye highlights ───────────────────────────────────────────── *@
-                <circle cx="38.5" cy="66.5" r="0.9" fill="white" />
-                <circle cx="64.5" cy="66.5" r="0.9" fill="white" />
-
-                @* ── Nose ─────────────────────────────────────────────────────── *@
-                @if (Character.BigNose)
-                {
-                    <path d="M 41 76 Q 50 90 59 76" stroke="@SkinNose" stroke-width="1.8" fill="none" stroke-linecap="round" />
-                    <circle cx="45" cy="85" r="2.5" fill="@SkinNose" opacity="0.45" />
-                    <circle cx="55" cy="85" r="2.5" fill="@SkinNose" opacity="0.45" />
-                    <circle cx="45" cy="85" r="1.2" fill="rgba(0,0,0,0.3)" />
-                    <circle cx="55" cy="85" r="1.2" fill="rgba(0,0,0,0.3)" />
-                }
-                else
-                {
-                    <path d="M 47 79 Q 50 83 53 79" stroke="@SkinNose" stroke-width="1.2" fill="none" stroke-linecap="round" />
-                }
-
-                @* ── Mouth (hidden when full beard covers chin) ───────────────── *@
-                @if (!Character.FacialHair || !HasBeard)
-                {
-                    <path d="M 43 93 Q 50 99 57 93" stroke="#b07070" stroke-width="1.5" fill="none" stroke-linecap="round" />
-                    <path d="M 46 92 Q 50 90.5 54 92" stroke="rgba(255,200,180,0.4)" stroke-width="0.9" fill="none" stroke-linecap="round" />
-                }
-
-                @* ── Facial hair ──────────────────────────────────────────────── *@
-                @if (Character.FacialHair)
-                {
-                    <path d="M 44 87 Q 47 92 50 90 Q 53 92 56 87 Q 53 85 50 86 Q 47 85 44 87 Z"
-                          fill="@FacialHairFill" />
-                    @if (HasBeard)
-                    {
-                        <path d="M 38 92 Q 33 102 35 111 Q 43 117 50 117 Q 57 117 65 111 Q 67 102 62 92 Q 56 98 50 98 Q 44 98 38 92 Z"
-                              fill="@FacialHairFill" opacity="0.92" />
-                    }
-                }
-
-                @* ── Glasses ──────────────────────────────────────────────────── *@
-                @if (Character.Glasses)
-                {
-                    <rect x="26" y="63" width="18" height="12" rx="4"
-                          fill="rgba(180,220,255,0.12)" stroke="#9ab3c8" stroke-width="1.5" />
-                    <rect x="56" y="63" width="18" height="12" rx="4"
-                          fill="rgba(180,220,255,0.12)" stroke="#9ab3c8" stroke-width="1.5" />
-                    <line x1="44" y1="69" x2="56" y2="69" stroke="#9ab3c8" stroke-width="1.5" />
-                    <line x1="26" y1="68" x2="19" y2="67" stroke="#9ab3c8" stroke-width="1.5" />
-                    <line x1="74" y1="68" x2="81" y2="67" stroke="#9ab3c8" stroke-width="1.5" />
-                    <line x1="29" y1="65" x2="31" y2="67" stroke="rgba(255,255,255,0.35)" stroke-width="1" stroke-linecap="round" />
-                    <line x1="59" y1="65" x2="61" y2="67" stroke="rgba(255,255,255,0.35)" stroke-width="1" stroke-linecap="round" />
-                }
-
-                @* ── Hat (topmost layer — covers hair) ───────────────────────── *@
-                @if (Character.Hat)
-                {
-                    @if (HasFedora)
-                    {
-                        <rect x="26" y="14" width="48" height="31" rx="5" fill="#2a2a2a" />
-                        <rect x="26" y="40" width="48" height="5" fill="#c05a10" />
-                        <rect x="13" y="43" width="74" height="9" rx="4" fill="#2a2a2a" />
-                        <line x1="15" y1="44" x2="85" y2="44" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
-                    }
-                    else
-                    {
-                        <ellipse cx="50" cy="32" rx="32" ry="20" fill="@CapFill" />
-                        <rect x="18" y="43" width="64" height="8" rx="3" fill="@CapBand" />
-                        <path d="M 28 28 Q 50 18 72 28" stroke="rgba(255,255,255,0.15)" stroke-width="2" fill="none" stroke-linecap="round" />
-                    }
-                }
-            }
-        </svg>
+        </div>
     </div>
 
     @if (ShowName)
@@ -162,10 +175,10 @@
 </div>
 
 @code {
-    /// <summary>The character to render. Null or FaceDown=true renders the eliminated state.</summary>
+    /// <summary>The character to render. Null renders the eliminated state.</summary>
     [Parameter, EditorRequired] public Character? Character { get; set; }
 
-    /// <summary>When true, renders the face-down (eliminated) visual regardless of Character.</summary>
+    /// <summary>When true, flips the card to show the eliminated (face-down) visual with a 3D animation.</summary>
     [Parameter] public bool FaceDown { get; set; } = false;
 
     /// <summary>When true, adds a gold border glow indicating this is the Mystery Person.</summary>

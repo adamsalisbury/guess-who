@@ -1,44 +1,34 @@
 # Message to My Successor
 
-## Status after Iteration 14
-Challenge Mode is fully implemented. Build: 0 errors, 0 warnings.
-
-The feature backlog (`to-do.md`) is now empty — all planned game features have been shipped.
+## Status after Iteration 15
+UX Animation & Polish Pass is complete. Build: 0 errors, 0 warnings.
 
 ## What changed (summary)
-Seven files modified:
+Four files modified, one folder deleted:
 
-- `PlayerState.cs` — `int? MysteryPersonId` → `List<int> MysteryPersonIds` + `HasSelectedMysteryPeople`
-- `GameSession.cs` — `SelectMysteryPeople(id1, id2)`, `AnswerQuestion(string)`, `MakeGuess(id1, id2)`, updated guards
-- `GameSessionService.cs` — updated passthrough signatures
-- `FaceCard.razor` — new `IsSelected` parameter (solid blue glow, "Click to deselect" title)
-- `FaceCard.razor.css` — `.face-card--selected` style
-- `Game.razor` — full rewrite of challenge-affected sections (see done.md Iteration 14 for detail)
-- `Game.razor.css` — new styles: mystery cards row, selection pair footer, 3-button answers, 4-card reveal
+- `FaceCard.razor` — 3D flip structure: `.face-card__flip-inner` (front + back faces), both SVGs
+  always in the DOM, `backface-visibility: hidden` per face, flipped via `face-card__flip-inner--flipped`.
+- `FaceCard.razor.css` — `aspect-ratio: 100/120` on art container; flip-inner/front/back rules;
+  `height: 100%` on all SVGs; opacity/filter transition on `--down` delayed 460ms; removed opacity
+  from the base `.face-card` transition.
+- `Game.razor` — `role="log" aria-live="polite" aria-label="Game chat log"` on the chat log div.
+- `Game.razor.css` — deleted `.chat-yn-buttons`, `.btn-yes`, `.btn-no` (dead code since Iteration 14).
+- `App.razor` — removed Bootstrap `<link>` tag.
+- `wwwroot/bootstrap/` — folder deleted (was ~200 KB of unused CSS).
 
 ## What to do next
 
-The feature backlog is empty. You have three options:
+The feature backlog (`to-do.md`) remains empty. `to-do-technical.md` has:
 
-### Option A — Technical debt
-Pick from `to-do-technical.md`:
-- Session lifecycle cleanup (IHostedService to remove dead sessions)
-- Player reconnect / sessionStorage token persistence
-- Remove unused Bootstrap dependency
-- Unit tests (xUnit + bUnit)
-- Input sanitisation on server side
+1. **Session lifecycle cleanup** — IHostedService to remove stale sessions (highest value for
+   production use; prevents unbounded memory growth on a long-running server).
+2. **Player reconnect** — sessionStorage token persistence so a Blazor circuit drop doesn't
+   permanently lock a player out of their active game.
+3. **Unit tests** — xUnit + bUnit for game logic (turn management, win/loss, countdown, etc).
+4. **Input sanitisation** — server-side validation on names and game codes.
+5. **Custom favicon** — replace the default Blazor favicon with something game-themed.
 
-### Option B — New game modes / enhancements
-Consider adding ideas not in the original spec:
-- **Sound effects** (Web Audio API via JS interop — short clips on answer/guess/win)
-- **Spectator mode** — read-only third-party viewing of an active game
-- **Timer-per-turn** — visible countdown pressure (could reuse existing countdown infrastructure)
-- **Profile / avatar** — let players choose a colour or icon to display beside their name
+**Recommended next iteration**: Session lifecycle cleanup (IHostedService). It's a contained
+server-side change with no UI impact and meaningful production value.
 
-### Option C — UX polish pass
-- Keyboard accessibility (focus management, ARIA labels on game buttons)
-- Animation pass — flip transitions for eliminated face cards (CSS 3D transform)
-- Responsive layout for 1280px exactly (test the min-width boundary)
-- Remove the unused `.btn-yes` / `.btn-no` CSS classes (left over from before challenge mode)
-
-Whatever you pick, leave the game in a playable state. Good luck!
+Good luck!

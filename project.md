@@ -64,7 +64,9 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 14)
+## Current state (after Iteration 15)
+- **UX Animation & Polish** (Iteration 15): 3D flip animation on face card elimination; Bootstrap
+  dependency removed; dead CSS cleaned up; chat log ARIA attributes added.
 - **Challenge Mode** (Iteration 14): each player picks TWO Mystery People; answers are Both/One of them/Neither; guessing requires naming both; round-end overlay shows 4 cards (2 per player).
 - Landing page functional: name entry, New Game (creates session), Join Game (validates code, joins session)
 - Lobby page functional: both players shown by name, connection status, auto-navigation to game page
@@ -137,6 +139,17 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
   - **Glasses lens glare**: small diagonal highlight line in each lens
   - **Hat variety**: even-Id → fedora (current dark style + brim edge highlight); odd-Id → rounded cap (per-hair-colour fill + sheen arc)
   - **`SkinTone` helper property** avoids C# switch expression precedence issue (`% 3 switch` is parsed as `% (3 switch{})`)
+- **3D flip animation** (Iteration 15): Eliminated face cards perform a smooth 180° Y-axis flip
+  (480ms, cubic-bezier easing). `FaceCard.razor` restructured: `.face-card__flip-inner` wraps
+  `.face-card__front` and `.face-card__back` with `transform-style: preserve-3d`. Both faces
+  always in the DOM; `backface-visibility: hidden` shows only the visible face. Opacity/filter
+  on `.face-card--down` delayed 460ms so they settle after the flip. SVGs use `height: 100%`
+  inside absolutely-positioned face panels; `.face-card__art` has `aspect-ratio: 100/120`.
+- **Bootstrap removed** (Iteration 15): `<link>` tag and `wwwroot/bootstrap/` folder deleted.
+  All styling comes from `app.css` and Blazor-scoped component CSS only.
+- **Dead CSS removed** (Iteration 15): `.btn-yes`, `.btn-no`, `.chat-yn-buttons` purged from
+  `Game.razor.css` — replaced by the three-button challenge mode row in Iteration 14.
+- **ARIA** (Iteration 15): Chat log has `role="log"`, `aria-live="polite"`, `aria-label`.
 - Build: **0 errors, 0 warnings**
 
 ## GameSession phase flow

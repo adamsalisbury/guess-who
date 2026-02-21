@@ -279,7 +279,8 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
                 <div class="chat-header">Chat</div>
 
                 @* ── Message log ─────────────────────────────────── *@
-                <div class="chat-log" @ref="_chatLogRef">
+                <div class="chat-log" @ref="_chatLogRef"
+                     role="log" aria-live="polite" aria-label="Game chat log">
                     @if (_session!.ChatLog.Count == 0)
                     {
                         <p class="chat-placeholder">The game is afoot…</p>

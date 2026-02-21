@@ -15,10 +15,6 @@ If a Blazor circuit drops and the player reloads, they lose their URL params (to
 - Or derive a stable token from the session code + player name (simpler, slightly less secure).
 Implement before the game board iteration so disconnects don't break active games.
 
-## Remove Bootstrap dependency
-The template includes Bootstrap CSS. We're not using it (custom CSS in `app.css`). Strip it from
-`App.razor` and remove the `bootstrap/` folder from `wwwroot/` to reduce payload.
-
 ## Suppress or replace `favicon.png`
 Replace the default Blazor favicon with a custom one matching the game theme.
 
