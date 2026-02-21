@@ -298,6 +298,46 @@
     animation: dotPulse 1.2s ease-in-out infinite;
 }
 
+/* ── Countdown bar ──────────────────────────────────────────── */
+
+/* Shown below the turn-status row whenever a post-answer countdown is running.
+   Visible to both the active and inactive player. */
+.countdown-bar {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    background: rgba(240, 165, 0, 0.09);
+    border: 1px solid rgba(240, 165, 0, 0.22);
+    animation: popIn 180ms ease;
+}
+
+.countdown-icon {
+    font-size: 0.78rem;
+    flex-shrink: 0;
+}
+
+.countdown-text {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.countdown-text strong {
+    color: var(--accent-gold);
+    font-variant-numeric: tabular-nums;
+    min-width: 1.2ch;
+    display: inline-block;
+    text-align: right;
+}
+
+/* Inline countdown shown inside the chat-awaiting message */
+.countdown-inline {
+    color: var(--accent-gold);
+    font-variant-numeric: tabular-nums;
+}
+
 /* ── Mystery Person panel ───────────────────────────────────── */
 
 .mystery-panel {

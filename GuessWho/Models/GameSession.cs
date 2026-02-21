@@ -32,6 +32,18 @@ public sealed class GameSession
     public bool AwaitingAnswer =>
         QuestionAsked && (_chatLog.Count == 0 || _chatLog[^1].Kind != ChatMessageKind.Answer);
 
+    /// <summary>
+    /// UTC time when the post-answer countdown started. Null when no countdown is running.
+    /// Read from any thread for display purposes (no lock required for reads).
+    /// </summary>
+    public DateTime? CountdownStartedAt { get; private set; }
+
+    /// <summary>True while the post-answer 10-second countdown is ticking.</summary>
+    public bool CountdownActive => CountdownStartedAt.HasValue;
+
+    /// <summary>Duration of the post-answer turn-end countdown in seconds.</summary>
+    public const int CountdownSeconds = 10;
+
     private readonly List<ChatMessage> _chatLog = [];
 
     /// <summary>Ordered list of all messages in the current round's chat log.</summary>
@@ -120,6 +132,7 @@ public sealed class GameSession
                 : Player1!.Token;
 
             QuestionAsked = false;
+            CountdownStartedAt = null;  // cancel any running countdown
             NotifyStateChanged();
         }
     }
@@ -170,6 +183,8 @@ public sealed class GameSession
                 Kind = ChatMessageKind.Answer
             });
             // QuestionAsked stays true — input remains locked until the turn ends
+            // Start the post-answer countdown so the active player sees the timer ticking
+            CountdownStartedAt = DateTime.UtcNow;
             NotifyStateChanged();
         }
     }

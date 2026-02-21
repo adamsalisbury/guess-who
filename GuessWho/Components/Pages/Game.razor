@@ -190,6 +190,13 @@ else if (_session.Phase == GamePhase.Playing)
                         <span>Waiting for @(_opponent?.Name ?? "opponent")…</span>
                     }
                 </div>
+                @if (_session.CountdownActive)
+                {
+                    <div class="countdown-bar">
+                        <span class="countdown-icon">⏱</span>
+                        <span class="countdown-text">Turn ending in <strong>@CountdownRemaining</strong>s…</span>
+                    </div>
+                }
             </div>
 
             @* ── Mystery Person display ──────────────────────────── *@
@@ -264,6 +271,12 @@ else if (_session.Phase == GamePhase.Playing)
                         {
                             <p class="chat-awaiting">Waiting for @(_opponent?.Name ?? "opponent") to answer…</p>
                         }
+                        else if (_session.CountdownActive)
+                        {
+                            <p class="chat-awaiting">
+                                Turn ends in <strong class="countdown-inline">@CountdownRemaining</strong>s — or end it now.
+                            </p>
+                        }
                         else
                         {
                             <p class="chat-awaiting">Question answered — end your turn when ready.</p>
@@ -329,9 +342,25 @@ else
     /// <summary>Reference to the chat log div, used for auto-scroll.</summary>
     private ElementReference _chatLogRef;
 
+    /// <summary>Timer that drives the post-answer countdown display and automatic turn-end.</summary>
+    private System.Threading.Timer? _countdownTimer;
+
+    /// <summary>Mirror of GameSession.CountdownSeconds — used for client-side remaining-time math.</summary>
+    private const int CountdownSeconds = GameSession.CountdownSeconds;
+
     /// <summary>True when it is this player's turn to act.</summary>
     private bool _isMyTurn =>
         _session is not null && MyToken is not null && _session.IsActivePlayer(MyToken);
+
+    /// <summary>
+    /// Remaining whole seconds in the current countdown, clamped to [0, CountdownSeconds].
+    /// Returns 0 when no countdown is active.
+    /// </summary>
+    private int CountdownRemaining =>
+        _session?.CountdownActive == true
+            ? (int)Math.Ceiling(Math.Max(0,
+                CountdownSeconds - (DateTime.UtcNow - _session.CountdownStartedAt!.Value).TotalSeconds))
+            : 0;
 
     protected override void OnInitialized()
     {
@@ -354,10 +383,51 @@ else
         {
             _opponent = _session?.GetOpponent(MyToken ?? "");
             StateHasChanged();
+
+            // Start the countdown timer when the session enters the post-answer countdown window.
+            // No-ops if the timer is already running (CountdownActive was already true last render).
+            if (_session?.CountdownActive == true)
+                StartCountdownTimer();
+
             // Auto-scroll chat log when new messages arrive
             if (_session?.Phase == GamePhase.Playing)
                 await ScrollChatToBottom();
         });
+    }
+
+    /// <summary>
+    /// Creates (or re-creates) a 500ms-interval timer that drives the countdown display and
+    /// fires StartNextTurn when the countdown expires.
+    /// Only the active player's circuit calls StartNextTurn; both circuits update the display.
+    /// </summary>
+    private void StartCountdownTimer()
+    {
+        // Dispose any existing timer before creating a new one
+        _countdownTimer?.Dispose();
+        _countdownTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                if (_session?.CountdownActive != true)
+                {
+                    // Countdown ended — dispose the timer and trigger a final render
+                    _countdownTimer?.Dispose();
+                    _countdownTimer = null;
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+
+                var elapsed = (DateTime.UtcNow - _session.CountdownStartedAt!.Value).TotalSeconds;
+
+                // Only the active player fires StartNextTurn to avoid double-fire from both circuits
+                if (elapsed >= CountdownSeconds && _isMyTurn)
+                    GameSessionService.StartNextTurn(Code, MyToken!);
+
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (ObjectDisposedException) { /* Component was disposed — stop silently */ }
+            catch (Exception) { /* Swallow any other interop failures */ }
+        }, null, dueTime: 0, period: 500);
     }
 
     /// <summary>Passes the turn to the opposing player.</summary>
@@ -416,6 +486,7 @@ else
 
     public void Dispose()
     {
+        _countdownTimer?.Dispose();
         if (_session is not null)
             _session.StateChanged -= OnSessionStateChanged;
     }
