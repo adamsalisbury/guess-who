@@ -31,7 +31,8 @@ Add an xUnit project (`GuessWho.Tests`) and write unit tests for:
 - `GameSessionService.CreateSession` — generates valid codes, adds player 1
 - `GameSessionService.JoinSession` — NotFound / Full / AlreadyJoined cases
 - `GameSession.AddPlayer` — concurrency (parallel joins on same slot)
-- Turn management logic (when added in a future iteration)
+- `GameSession.StartNextTurn` — no-op when caller is not active; alternates correctly
+- `GameSession.IsActivePlayer` — correct token resolution
 - Win/loss/round-end state transitions (when added)
 
 ## Input sanitisation

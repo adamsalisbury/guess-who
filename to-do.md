@@ -4,49 +4,35 @@ Items are listed in priority order. Pick the top item each iteration.
 
 ---
 
-## 1. Turn management ← NEXT
-Enforce alternating turns. Turn indicator uses player names ("Alex's turn" / "Waiting for
-Bernard…"). All interactive controls locked for the inactive player. Turn state stored
-server-side in `GameSession`.
-
-Key data to add to `GameSession`:
-- `ActivePlayerToken: string?` — token of the player whose turn it is; set when phase → Playing
-- `QuestionAsked: bool` — whether a question has been sent this turn (one-question lock)
-- Methods: `StartNextTurn()`, helper to resolve active/inactive player from token
-
-UI in `Game.razor`:
-- `.turn-status` in score bar: "Alex's turn" (gold) or "Waiting for Bernard…" (muted)
-- Disable chat input and End Turn button for inactive player (wired in Iteration 5)
-
-## 2. Chat panel & question flow
+## 1. Chat panel & question flow ← NEXT
 Active player types and sends a question (free text). The message appears in both players' chat
 logs. The inactive player sees Yes/No buttons inline with that message. Their answer is appended
 to the log with their name ("Bernard: Yes"). Both players see the exchange in real time.
 
-## 3. One-question-per-turn lock
+## 2. One-question-per-turn lock
 After the active player sends a question, the chat input is locked for the remainder of that turn.
 Unlocks on turn change. Only one question per turn is permitted.
 
-## 4. Turn end mechanics
+## 3. Turn end mechanics
 - A **10-second countdown** begins after the inactive player answers (visible to both players).
 - An **"End Turn"** button is available to the active player throughout their entire turn (not just post-answer).
 - Turn passes either when the countdown expires or the active player clicks "End Turn".
 - Clicking faces to flip them remains available during the countdown window.
 
-## 5. Face elimination (own board)
+## 4. Face elimination (own board)
 The active player can click any face card on their own board to flip it face-down (eliminate it).
 This action is permanent for the round. The Mystery Person card is immune and cannot be eliminated.
 
-## 6. Opponent elimination sync (top panel)
+## 5. Opponent elimination sync (top panel)
 When a player eliminates a face from their own board, the corresponding card in the opponent's
 top-panel view updates in real time (flipped down). Uses the existing `StateChanged` event pattern.
 
-## 7. Guessing mechanic
+## 6. Guessing mechanic
 The active player can, instead of asking a question, make a direct guess: they name the opponent's
 Mystery Person. If correct → win the round. If wrong → immediate loss. A "Make a Guess" button
 or special input mode initiates this. Requires a confirmation step to prevent accidental guesses.
 
-## 8. End-of-round overlay & post-game flow
+## 7. End-of-round overlay & post-game flow
 When a round ends:
 - Overlay shown to both players: outcome, both Mystery People revealed, current championship score.
 - Both players choose **New Round** or **End Game**. Both must agree before action is taken.
@@ -54,23 +40,23 @@ When a round ends:
 - If one player disconnects before deciding → End Game.
 - Match winner (5 round wins): replace "New Round" with "Play Again" (resets championship score).
 
-## 9. Championship scoring
+## 8. Championship scoring
 Track round wins per player across the session. Score displayed persistently (e.g. "Alex 2 – 1 Bernard").
 First to 5 round wins → match champion. Reset on Play Again.
 
-## 10. Chat log readability
+## 9. Chat log readability
 Visual distinction between: questions (named, styled as question), answers (named, styled as answer),
 system events (e.g. "Alex eliminated a face"), and turn boundaries (dividers between turns).
 
-## 11. Suggested questions UI
+## 10. Suggested questions UI
 A collapsible panel or inline chip list of attribute-based yes/no questions ("Does your person wear
 glasses?", "Does your person have blonde hair?", etc.) that, when clicked, populate the chat input.
 Speeds up gameplay and helps new players.
 
-## 12. Face card visual polish
+## 11. Face card visual polish
 Iterate on face card rendering for more character and distinctiveness — more expressive facial
 features, colour fills, accessory details. Still SVG/CSS only.
 
-## 13. Challenge mode
+## 12. Challenge mode
 Each player picks two Mystery People. Questions may have "Both"/"Either" answers. Modified win
 condition: correctly identify both of the opponent's Mystery People.

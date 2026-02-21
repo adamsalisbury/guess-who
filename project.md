@@ -64,7 +64,7 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 4)
+## Current state (after Iteration 5)
 - Landing page functional: name entry, New Game (creates session), Join Game (validates code, joins session)
 - Lobby page functional: both players shown by name, connection status, auto-navigation to game page
 - Both players auto-navigate to `/game/{Code}` when lobby is full
@@ -76,11 +76,17 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
     - **Own board (bottom, remaining)**: 6-column `md`-card grid in player's own `BoardOrder`; Mystery
       Person card has gold glow (`IsMystery`); header shows player's name
   - **Right column (340px)** — three stacked sections:
-    - **Score bar**: Round number, championship score ("Alex 0 – 0 Bernard"), "Game in progress…" status
-      (turn management wired in Iteration 5)
+    - **Score bar**: Round number, championship score ("Alex 0 – 0 Bernard"), named turn indicator
+      ("Your turn, [name]" gold/pulsing dot | "Waiting for [opponent]…" muted italic)
     - **Mystery Person panel**: `lg` FaceCard with gold glow, "Your Mystery Person" label, keep-secret hint
-    - **Chat panel**: scrollable log with "The game is afoot…" placeholder; disabled input + Send button
-      (wired in Iteration 3 of chat)
+    - **Chat panel**: scrollable log with "The game is afoot…" placeholder; input + Send button enabled
+      only for active player; "End Turn" button shown to active player only
+- **Turn management** (Iteration 5):
+  - `GameSession.ActivePlayerToken`: token of the current active player; set to Player1 on phase→Playing
+  - `GameSession.QuestionAsked`: tracks whether a question was sent this turn (wired to chat in Iteration 6)
+  - `GameSession.StartNextTurn()`: flips turn between players under `_lock`, resets QuestionAsked
+  - `_isMyTurn` computed property in `Game.razor` drives all conditional UI
+  - "End Turn" button passes turn immediately; both circuits re-render via `StateChanged`
 - `PlayerState.BoardOrder`: `List<int>` of all 24 character IDs in a player-specific random shuffle;
   populated by `GameSession.ShuffleBoardOrders()` when phase transitions CharacterSelection → Playing.
   Each player's board order is independently shuffled.
@@ -95,5 +101,5 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
 - Bootstrap CSS is included in the template but not actively used — custom CSS in `app.css` is the design system
 - `GameSession` imports `GuessWho.Data` (for `CharacterData`) to populate `BoardOrder`. Acceptable for
   a single-project small game; would separate in a multi-project architecture.
-- Turn status in score bar shows a placeholder ("Game in progress…") — wired in Iteration 5
-- Chat input is disabled — wired in Iteration 3 of chat features
+- Chat input is disabled for inactive player; wired to question flow in Iteration 6
+- `QuestionAsked` flag exists server-side but not yet connected to chat UI (Iteration 6)

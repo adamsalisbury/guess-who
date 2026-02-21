@@ -158,4 +158,40 @@ Append-only chronological record. Most recent entry at the bottom.
 - `_me` is set once in `OnInitialized` and never re-assigned — since `PlayerState` is a reference type,
   `_me.BoardOrder` automatically reflects server-side mutations to the same object.
 - The score bar displays `Player1?.RoundWins` and `Player2?.RoundWins` (both 0 at game start).
-  Championship scoring wired in Iteration 9.
+  Championship scoring wired in Iteration 8.
+
+---
+
+## Iteration 5 — Turn management
+**Completed**: 2026-02-21
+
+### What was done
+- Added `ActivePlayerToken` (string, private set) to `GameSession`. Set to `Player1.Token` when phase
+  transitions to Playing. Never null during Playing phase.
+- Added `QuestionAsked` (bool, private set) to `GameSession`. Resets to `false` on each `StartNextTurn`.
+  Not wired to chat UI yet — chat flow wired in Iteration 6.
+- Added `IsActivePlayer(string token)` helper — null/empty safe, compares token to `ActivePlayerToken`.
+- Added `StartNextTurn(string callerToken)` inside `_lock`: no-ops if caller is not active player
+  (prevents double-fire from stale callbacks), flips `ActivePlayerToken` between P1/P2, resets
+  `QuestionAsked`, calls `NotifyStateChanged()`.
+- Added `GameSessionService.StartNextTurn(code, token)` passthrough.
+- `Game.razor`: added `_isMyTurn` computed property (reads `_session.IsActivePlayer(MyToken)`).
+  Turn status in score bar replaced with named indicator:
+  - Active: pulsing gold dot + "Your turn, [name]" (`.turn-status--active`, gold, bold)
+  - Inactive: "Waiting for [opponent]…" (`.turn-status--waiting`, muted italic)
+  Chat input and Send button: `disabled="@(!_isMyTurn)"`. Placeholder text changes to
+  "Waiting for your turn…" when inactive.
+  End Turn button rendered only for active player; calls `EndTurn()` → `StartNextTurn`.
+- `Game.razor.css`: `.turn-status--active`, `.turn-status--waiting`, `.turn-indicator-dot`
+  (7px pulsing gold dot using existing `dotPulse` keyframe from `app.css`). Chat input area
+  refactored to `flex-direction: column` with inner `.chat-input-row` for the input + send pair;
+  `.end-turn-btn` with gold border/text hover state.
+- Build result: **0 errors, 0 warnings**.
+
+### Notes
+- `_isMyTurn` is a computed property, not a field — re-evaluated on every render. Since `StateChanged`
+  fires `InvokeAsync(StateHasChanged)`, both circuits re-render after `StartNextTurn`, so the turn
+  indicator updates immediately for both players simultaneously.
+- No countdown timer yet — that is Iteration 3 of turn mechanics (currently item 3 in to-do.md).
+  For this iteration, only the End Turn button passes the turn.
+- `QuestionAsked` is tracked on the server but not yet connected to chat UI — fully wired in Iteration 6.
