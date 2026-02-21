@@ -1,8 +1,10 @@
 @using GuessWho.Models
 
-<div class="face-card face-card--@Size @(FaceDown ? "face-card--down" : "") @(IsMystery ? "face-card--mystery" : "")"
+<div class="face-card face-card--@Size @(FaceDown ? "face-card--down" : "") @(IsMystery ? "face-card--mystery" : "") @(IsEliminatable ? "face-card--eliminatable" : "")"
      @onclick="HandleClick"
-     style="@(OnClick.HasDelegate ? "cursor:pointer" : "")">
+     style="@(OnClick.HasDelegate ? "cursor:pointer" : "")"
+     title="@(IsEliminatable ? "Click to eliminate" : null)"
+>
 
     <div class="face-card__art">
         <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg"
@@ -147,6 +149,12 @@
 
     /// <summary>When true, shows the character name below the card.</summary>
     [Parameter] public bool ShowName { get; set; } = true;
+
+    /// <summary>
+    /// When true, renders the card with a red hover highlight indicating it can be eliminated.
+    /// Should be set together with an OnClick handler for elimination.
+    /// </summary>
+    [Parameter] public bool IsEliminatable { get; set; } = false;
 
     /// <summary>Optional click handler. When set, card becomes interactive (pointer cursor).</summary>
     [Parameter] public EventCallback<Character?> OnClick { get; set; }

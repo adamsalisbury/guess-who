@@ -91,6 +91,13 @@ public sealed class GameSessionService
     public void AnswerQuestion(string code, string playerToken, bool yes) =>
         GetSession(code)?.AnswerQuestion(playerToken, yes);
 
+    /// <summary>
+    /// Records that the active player has eliminated a character from their board.
+    /// No-ops if the session is not found, caller is not active, or character is immune/already eliminated.
+    /// </summary>
+    public void EliminateCharacter(string code, string playerToken, int characterId) =>
+        GetSession(code)?.EliminateCharacter(playerToken, characterId);
+
     /// <summary>Removes sessions that are empty or abandoned (no players for > 2 hours).</summary>
     public void RemoveSession(string code) =>
         _sessions.TryRemove(code.ToUpperInvariant().Trim(), out _);

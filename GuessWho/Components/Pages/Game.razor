@@ -119,7 +119,16 @@ else if (_session.Phase == GamePhase.Playing)
             <div class="board-section">
                 <div class="board-header">
                     <span class="board-label">@(_opponent?.Name ?? "Opponent")'s Board</span>
-                    <span class="board-count">24 characters</span>
+                    <span class="board-count">
+                        @if (_opponent?.EliminatedIds.Count > 0)
+                        {
+                            @($"{_opponent.EliminatedIds.Count} eliminated")
+                        }
+                        else
+                        {
+                            @("24 remaining")
+                        }
+                    </span>
                 </div>
                 <div class="board-grid-area">
                     <div class="board-grid board-grid--sm">
@@ -142,7 +151,11 @@ else if (_session.Phase == GamePhase.Playing)
             <div class="board-section board-section--own">
                 <div class="board-header">
                     <span class="board-label">@_me!.Name's Board</span>
-                    <span class="board-count">Your cards</span>
+                    <span class="board-count">
+                        @(_me!.EliminatedIds.Count == 0
+                            ? "24 remaining"
+                            : $"{_me!.BoardOrder.Count - _me!.EliminatedIds.Count} remaining · {_me!.EliminatedIds.Count} eliminated")
+                    </span>
                 </div>
                 <div class="board-grid-area">
                     <div class="board-grid board-grid--md">
@@ -152,11 +165,14 @@ else if (_session.Phase == GamePhase.Playing)
                             var ch = CharacterData.GetById(localId);
                             var isMystery = localId == _me!.MysteryPersonId;
                             var isEliminated = _me!.EliminatedIds.Contains(localId);
+                            var canEliminate = _isMyTurn && !isMystery && !isEliminated;
                             <FaceCard Character="ch"
                                       Size="md"
                                       ShowName="true"
                                       IsMystery="@isMystery"
-                                      FaceDown="@isEliminated" />
+                                      FaceDown="@isEliminated"
+                                      IsEliminatable="@canEliminate"
+                                      OnClick="@GetEliminateCallback(localId, canEliminate)" />
                         }
                     </div>
                 </div>
@@ -428,6 +444,25 @@ else
             catch (ObjectDisposedException) { /* Component was disposed — stop silently */ }
             catch (Exception) { /* Swallow any other interop failures */ }
         }, null, dueTime: 0, period: 500);
+    }
+
+    /// <summary>
+    /// Returns an EventCallback that calls EliminateCard when canEliminate is true,
+    /// or an empty callback otherwise. Avoids ambiguous ternary-lambda type inference.
+    /// </summary>
+    private EventCallback<Character?> GetEliminateCallback(int characterId, bool canEliminate) =>
+        canEliminate
+            ? EventCallback.Factory.Create<Character?>(this, _ => EliminateCard(characterId))
+            : default;
+
+    /// <summary>
+    /// Eliminates a character from the active player's own board.
+    /// Server-side guards prevent eliminating the Mystery Person or non-active-player requests.
+    /// </summary>
+    private void EliminateCard(int characterId)
+    {
+        if (!_isMyTurn || MyToken is null) return;
+        GameSessionService.EliminateCharacter(Code, MyToken, characterId);
     }
 
     /// <summary>Passes the turn to the opposing player.</summary>

@@ -189,6 +189,27 @@ public sealed class GameSession
         }
     }
 
+    /// <summary>
+    /// Records that the active player has eliminated a character from their board.
+    /// No-ops if: session is not in Playing phase, caller is not the active player,
+    /// the character is the caller's Mystery Person (immune), or already eliminated.
+    /// </summary>
+    public void EliminateCharacter(string callerToken, int characterId)
+    {
+        lock (_lock)
+        {
+            if (Phase != GamePhase.Playing) return;
+            if (callerToken != ActivePlayerToken) return;   // only active player can eliminate
+
+            var player = GetPlayer(callerToken);
+            if (player is null) return;
+            if (player.MysteryPersonId == characterId) return;  // Mystery Person is immune
+            if (!player.EliminatedIds.Add(characterId)) return; // already eliminated — no-op
+
+            NotifyStateChanged();
+        }
+    }
+
     public PlayerState? GetPlayer(string token) =>
         Player1?.Token == token ? Player1
         : Player2?.Token == token ? Player2

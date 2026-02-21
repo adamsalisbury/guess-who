@@ -115,3 +115,22 @@
 .face-card:not(.face-card--down):not(.face-card--mystery)[style*="cursor:pointer"]:hover .face-card__name {
     color: #e6edf3;
 }
+
+/* ── Eliminatable — red border + name tint on hover ── */
+/* Overrides the default blue highlight for elimination targets */
+.face-card--eliminatable:hover .face-card__art {
+    border-color: #e05555 !important;
+    box-shadow: 0 0 10px rgba(220, 80, 80, 0.35) !important;
+}
+
+.face-card--eliminatable:hover .face-card__name {
+    color: #e05555;
+}
+
+.face-card--eliminatable:hover {
+    transform: translateY(-2px);
+}
+
+.face-card--eliminatable:active {
+    transform: translateY(0);
+}
