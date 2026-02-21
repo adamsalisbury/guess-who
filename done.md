@@ -239,3 +239,41 @@ Append-only chronological record. Most recent entry at the bottom.
 - Auto-scroll uses `eval` JS interop — pragmatic for iteration 6; can be replaced with a proper
   JS module in a later polish pass.
 - No countdown timer yet — that is Iteration 8 (turn end mechanics with 10-second countdown).
+
+---
+
+## Iteration 7 — Turn end mechanics
+**Completed**: 2026-02-21
+
+### What was done
+- Added `CountdownStartedAt` (`DateTime?`, private set) and derived `CountdownActive` (`bool`) to
+  `GameSession`. Set in `AnswerQuestion()` immediately after posting the answer; cleared in
+  `StartNextTurn()`. Exposed `CountdownSeconds = 10` as a public constant so clients can mirror it.
+- Added `_countdownTimer` (`System.Threading.Timer?`) and `CountdownRemaining` (computed, ceil-clamped)
+  to `Game.razor`.
+- `StartCountdownTimer()` creates a 500ms-interval timer. Each tick:
+  1. Checks `CountdownActive`; if false, disposes the timer and triggers a final render.
+  2. Computes elapsed time. If ≥ 10s **and** `_isMyTurn`, calls `StartNextTurn` (only the active
+     player's circuit fires this — prevents double-fire from both circuits).
+  3. Calls `InvokeAsync(StateHasChanged)` to update the countdown display.
+  - Wrapped in try/catch for `ObjectDisposedException` and general exceptions — safe if component
+    is disposed while timer is running.
+- `OnSessionStateChanged` calls `StartCountdownTimer()` whenever `_session.CountdownActive == true`.
+  Because the timer is disposed-and-recreated on each call, and `CountdownStartedAt` is server-side
+  truth, the display is always accurate regardless of how many times the timer is restarted.
+- `Dispose()` now disposes `_countdownTimer` before unsubscribing `StateChanged`.
+- **Score bar**: a `countdown-bar` div appears below the turn-status row when `CountdownActive` is
+  true. Shows "⏱ Turn ending in Xs…" to **both** players simultaneously (gold-tinted, animated popIn).
+- **Chat input area**: when the active player's question has been answered and countdown is ticking,
+  the awaiting message shows "Turn ends in Xs — or end it now." (gold-coloured inline count).
+- Build result: **0 errors, 0 warnings**.
+
+### Notes
+- `CountdownStartedAt` is written under `_lock` (inside `AnswerQuestion` / `StartNextTurn`) but read
+  freely from the timer callback — safe because `DateTime?` reads are atomic on 64-bit CLR.
+- `StartNextTurn` retains its no-op guard (`callerToken != ActivePlayerToken`) which prevents any
+  accidental double-fire even if both circuits' timers reach elapsed ≥ 10 at the same instant.
+- The inactive player's circuit also starts the countdown timer for display. It never calls
+  `StartNextTurn` because `_isMyTurn` is false for them.
+- The `dueTime: 0` causes the timer to fire immediately on creation — first render of the countdown
+  display therefore happens with no perceivable delay after the answer arrives.

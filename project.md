@@ -64,7 +64,7 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 6)
+## Current state (after Iteration 7)
 - Landing page functional: name entry, New Game (creates session), Join Game (validates code, joins session)
 - Lobby page functional: both players shown by name, connection status, auto-navigation to game page
 - Both players auto-navigate to `/game/{Code}` when lobby is full
@@ -111,4 +111,8 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
 - `GameSession` imports `GuessWho.Data` (for `CharacterData`) to populate `BoardOrder`. Acceptable for
   a single-project small game; would separate in a multi-project architecture.
 - Chat auto-scroll uses `eval` JS interop (pragmatic). A proper JS module can replace it in a polish iteration.
-- No countdown timer yet — implemented in Iteration 8 (turn end mechanics)
+- **Turn countdown** (Iteration 7): `GameSession.CountdownStartedAt` (DateTime?) is set in
+  `AnswerQuestion()` and cleared in `StartNextTurn()`. Client uses a 500ms `System.Threading.Timer`
+  started from `OnSessionStateChanged` whenever `CountdownActive` is true. Only the active player's
+  timer fires `StartNextTurn`; both circuits display the countdown. Score bar shows "⏱ Turn ending in Xs…"
+  (visible to both players). Chat input area shows remaining seconds inline for the active player.
