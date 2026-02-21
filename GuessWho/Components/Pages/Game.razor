@@ -381,31 +381,52 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
     @* Rendered on top of the board when the phase is RoundEnd.  *@
     @if (_session.Phase == GamePhase.RoundEnd)
     {
-        var isWinner   = _session.RoundWinnerToken == MyToken;
-        var winnerName = _session.GetPlayer(_session.RoundWinnerToken ?? "")?.Name ?? "Unknown";
-        var loserName  = _session.GetOpponent(_session.RoundWinnerToken ?? "")?.Name ?? "Unknown";
+        var isWinner       = _session.RoundWinnerToken == MyToken;
+        var winnerName     = _session.GetPlayer(_session.RoundWinnerToken ?? "")?.Name ?? "Unknown";
+        var loserName      = _session.GetOpponent(_session.RoundWinnerToken ?? "")?.Name ?? "Unknown";
 
         var p1Person = _session.Player1?.MysteryPersonId.HasValue == true
             ? CharacterData.GetById(_session.Player1.MysteryPersonId.Value) : null;
         var p2Person = _session.Player2?.MysteryPersonId.HasValue == true
             ? CharacterData.GetById(_session.Player2.MysteryPersonId.Value) : null;
 
+        // Match champion data
+        var matchWinnerName = _session.IsMatchOver
+            ? (_session.GetPlayer(_session.MatchWinnerToken ?? "")?.Name ?? "Unknown")
+            : null;
+        var iAmMatchWinner = _session.MatchWinnerToken == MyToken;
+
+        // Button label changes to "Play Again" when a match has just been won
+        var continueLabel = _session.IsMatchOver ? "Play Again" : "New Round";
+
+        // Per-player post-round decisions from the server
+        var myDecision  = MyToken is not null   ? _session.GetPostRoundDecision(MyToken) : null;
+        var oppDecision = _opponent?.Token is not null ? _session.GetPostRoundDecision(_opponent.Token) : null;
+
         <div class="round-end-overlay">
             <div class="round-end-card">
 
-                @* Outcome heading *@
+                @* ── Match champion banner (only when a player has won 5 rounds) ── *@
+                @if (_session.IsMatchOver)
+                {
+                    <div class="round-end-match-banner @(iAmMatchWinner ? "round-end-match-banner--win" : "round-end-match-banner--loss")">
+                        @if (iAmMatchWinner)
+                        {
+                            @("🏆 You win the match!")
+                        }
+                        else
+                        {
+                            @($"🏆 {matchWinnerName} wins the match!")
+                        }
+                    </div>
+                }
+
+                @* ── Round outcome heading ─────────────────────────────── *@
                 <div class="round-end-outcome @(isWinner ? "round-end-outcome--win" : "round-end-outcome--loss")">
-                    @if (isWinner)
-                    {
-                        @("You win the round! 🎉")
-                    }
-                    else
-                    {
-                        @("You lose the round")
-                    }
+                    @(isWinner ? "You win the round! 🎉" : "You lose the round")
                 </div>
 
-                @* Explanation *@
+                @* ── Explanation ───────────────────────────────────────── *@
                 <p class="round-end-subtext">
                     @if (_session.EndReason == RoundEndReason.CorrectGuess)
                     {
@@ -419,7 +440,7 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
 
                 <div class="round-end-divider"></div>
 
-                @* Reveal both Mystery People *@
+                @* ── Mystery Person reveal ─────────────────────────────── *@
                 <div class="round-end-reveal">
                     @if (p1Person is not null)
                     {
@@ -441,7 +462,7 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
 
                 <div class="round-end-divider"></div>
 
-                @* Championship score *@
+                @* ── Championship score ────────────────────────────────── *@
                 <div class="round-end-score">
                     <span class="round-end-score-name">@_session.Player1?.Name</span>
                     <span class="round-end-score-value">@_session.Player1?.RoundWins</span>
@@ -450,10 +471,55 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
                     <span class="round-end-score-name round-end-score-name--right">@_session.Player2?.Name</span>
                 </div>
 
-                @* Action buttons *@
+                @* ── Decision status chips ─────────────────────────────── *@
+                @* Shown once at least one player has clicked a button.      *@
+                @if (myDecision.HasValue || oppDecision.HasValue)
+                {
+                    <div class="round-end-decisions">
+                        <div class="decision-chip @(myDecision.HasValue ? "decision-chip--chosen" : "")">
+                            <span class="decision-chip-name">@(_me?.Name ?? "You")</span>
+                            <span class="decision-chip-choice">
+                                @(myDecision.HasValue
+                                    ? (myDecision == PostRoundDecision.NewRound ? continueLabel : "End Game")
+                                    : "—")
+                            </span>
+                        </div>
+                        <div class="decision-chip @(oppDecision.HasValue ? "decision-chip--chosen" : "")">
+                            <span class="decision-chip-name">@(_opponent?.Name ?? "Opponent")</span>
+                            <span class="decision-chip-choice">
+                                @(oppDecision.HasValue
+                                    ? (oppDecision == PostRoundDecision.NewRound ? continueLabel : "End Game")
+                                    : "—")
+                            </span>
+                        </div>
+                    </div>
+
+                    @* Status message when waiting for consensus *@
+                    @if (myDecision.HasValue && !oppDecision.HasValue)
+                    {
+                        <p class="round-end-waiting">Waiting for @(_opponent?.Name ?? "opponent") to decide…</p>
+                    }
+                    else if (myDecision.HasValue && oppDecision.HasValue && myDecision != oppDecision)
+                    {
+                        <p class="round-end-waiting">
+                            Waiting to agree… game ends automatically in 60s if unresolved.
+                        </p>
+                    }
+                }
+
+                @* ── Action buttons ────────────────────────────────────── *@
+                @* Disabled once this player has clicked — no changing your mind. *@
                 <div class="round-end-actions">
-                    <button class="btn btn-primary" @onclick="NewRound">New Round</button>
-                    <button class="btn btn-secondary" @onclick="LeaveGame">End Game</button>
+                    <button class="btn btn-primary @(myDecision == PostRoundDecision.NewRound ? "btn--chosen" : "")"
+                            disabled="@myDecision.HasValue"
+                            @onclick="@(() => MakeDecision(PostRoundDecision.NewRound))">
+                        @continueLabel
+                    </button>
+                    <button class="btn btn-secondary @(myDecision == PostRoundDecision.EndGame ? "btn--chosen" : "")"
+                            disabled="@myDecision.HasValue"
+                            @onclick="@(() => MakeDecision(PostRoundDecision.EndGame))">
+                        End Game
+                    </button>
                 </div>
 
             </div>
@@ -700,20 +766,14 @@ else
 
     // ── Post-round actions ───────────────────────────────────────────────
 
-    /// <summary>Starts a new round within the same session. Resets per-round state for both players.</summary>
-    private void NewRound()
+    /// <summary>
+    /// Records this player's post-round decision. Both players must choose the same
+    /// option before it takes effect; a 60-second server-side timeout defaults to EndGame.
+    /// </summary>
+    private void MakeDecision(PostRoundDecision decision)
     {
         if (MyToken is not null)
-            GameSessionService.StartNewRound(Code, MyToken);
-    }
-
-    /// <summary>Ends the game session; both players are navigated home via GameEnd phase.</summary>
-    private void LeaveGame()
-    {
-        if (MyToken is not null)
-            GameSessionService.EndGame(Code, MyToken);
-        else
-            Nav.NavigateTo("/");
+            GameSessionService.MakePostRoundDecision(Code, MyToken, decision);
     }
 
     // ── Mystery Person selection ─────────────────────────────────────────

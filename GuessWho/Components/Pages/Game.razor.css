@@ -892,3 +892,102 @@
     padding: 0.75rem 1rem;
     font-size: 0.95rem;
 }
+
+/* Chosen button keeps full opacity; unchosen (disabled, not chosen) fades out */
+.round-end-actions .btn:disabled:not(.btn--chosen) {
+    opacity: 0.28;
+    cursor: not-allowed;
+}
+
+.round-end-actions .btn--chosen {
+    opacity: 1;
+    cursor: default;
+}
+
+/* ── Match champion banner ──────────────────────────────────── */
+
+/* Shown at the top of the round-end overlay when a match winner is determined. */
+.round-end-match-banner {
+    font-size: 1.55rem;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    text-align: center;
+    padding: 0.4rem 1.5rem;
+    border-radius: var(--radius-md);
+    border: 2px solid;
+    animation: popIn 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Match winner sees green banner */
+.round-end-match-banner--win {
+    color: var(--accent-green);
+    background: rgba(63, 185, 80, 0.12);
+    border-color: rgba(63, 185, 80, 0.4);
+}
+
+/* Match loser sees gold "opponent wins" banner */
+.round-end-match-banner--loss {
+    color: var(--accent-gold);
+    background: rgba(240, 165, 0, 0.09);
+    border-color: rgba(240, 165, 0, 0.3);
+}
+
+/* ── Decision status chips ──────────────────────────────────── */
+
+/* Row of two chips showing each player's current decision (or "—" if undecided) */
+.round-end-decisions {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    justify-content: center;
+}
+
+/* Individual chip — one per player */
+.decision-chip {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    transition: border-color 200ms ease, background 200ms ease;
+}
+
+/* Chip highlights in gold once the player has made their decision */
+.decision-chip--chosen {
+    border-color: var(--accent-gold);
+    background: rgba(240, 165, 0, 0.06);
+}
+
+.decision-chip-name {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+}
+
+.decision-chip-choice {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.decision-chip--chosen .decision-chip-choice {
+    color: var(--accent-gold);
+}
+
+/* ── Waiting / disagreement message ─────────────────────────── */
+
+/* Shown when this player has decided but the opponent hasn't yet, or they disagree. */
+.round-end-waiting {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+    margin: 0;
+    animation: popIn 180ms ease;
+}
