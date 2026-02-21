@@ -1,5 +1,50 @@
 # Guess Who? — Completed Work Log
 
+## Iteration 16 — Session Lifecycle Management
+**Completed**: 2026-02-21
+
+### What was done
+
+#### `GameSession` implements `IDisposable`
+`GameSession` now implements `IDisposable`. The `Dispose()` method disposes the
+`_postRoundTimeoutTimer` if it is still running, preventing timer leaks when sessions are
+removed mid-countdown. Dispose is idempotent and safe to call multiple times.
+
+#### `LastActivityAt` timestamp
+A new `public DateTime LastActivityAt` property is stamped to `DateTime.UtcNow` on every
+call to `NotifyStateChanged()`. This gives the cleanup service a reliable, always-current
+measure of when the session was last touched, without any additional locking.
+
+#### `GameSessionService.RemoveStaleSessions()`
+New method that collects and removes sessions matching either condition:
+- Phase is `GamePhase.GameEnd` (the game concluded; clients have already navigated home).
+- `LastActivityAt` is older than `SessionIdleTimeout` (2 hours) — covers abandoned lobbies,
+  crashed clients, or any session where both players vanished without formally ending the game.
+
+Each removed session has `Dispose()` called on it to release the post-round timer.
+Returns the count of sessions removed (for logging).
+
+#### `GameSessionService.RemoveSession` now disposes
+The existing single-session removal method was updated to call `session.Dispose()` after
+removing the session from the dictionary.
+
+#### `SessionCleanupService` (new `BackgroundService`)
+`GuessWho/Services/SessionCleanupService.cs` — a minimal `BackgroundService` that:
+- Waits 10 minutes between passes (configurable via `CleanupInterval`).
+- Calls `_sessionService.RemoveStaleSessions()` on each pass.
+- Logs at `Information` level when sessions are removed; `Debug` level when nothing is found.
+- Handles `OperationCanceledException` from `Task.Delay` cleanly on shutdown.
+
+Registered in `Program.cs`:
+```csharp
+builder.Services.AddHostedService<SessionCleanupService>();
+```
+
+#### Build result
+0 errors, 0 warnings.
+
+---
+
 ## Iteration 15 — UX Animation & Polish Pass
 **Completed**: 2026-02-21
 

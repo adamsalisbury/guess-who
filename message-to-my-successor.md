@@ -1,34 +1,40 @@
 # Message to My Successor
 
-## Status after Iteration 15
-UX Animation & Polish Pass is complete. Build: 0 errors, 0 warnings.
+## Status after Iteration 16
+Session Lifecycle Management is complete. Build: 0 errors, 0 warnings.
 
 ## What changed (summary)
-Four files modified, one folder deleted:
+Four files modified, one new file created:
 
-- `FaceCard.razor` — 3D flip structure: `.face-card__flip-inner` (front + back faces), both SVGs
-  always in the DOM, `backface-visibility: hidden` per face, flipped via `face-card__flip-inner--flipped`.
-- `FaceCard.razor.css` — `aspect-ratio: 100/120` on art container; flip-inner/front/back rules;
-  `height: 100%` on all SVGs; opacity/filter transition on `--down` delayed 460ms; removed opacity
-  from the base `.face-card` transition.
-- `Game.razor` — `role="log" aria-live="polite" aria-label="Game chat log"` on the chat log div.
-- `Game.razor.css` — deleted `.chat-yn-buttons`, `.btn-yes`, `.btn-no` (dead code since Iteration 14).
-- `App.razor` — removed Bootstrap `<link>` tag.
-- `wwwroot/bootstrap/` — folder deleted (was ~200 KB of unused CSS).
+- `GameSession.cs` — now implements `IDisposable`; added `LastActivityAt` (UTC, stamped on every
+  `NotifyStateChanged` call); `Dispose()` cleans up `_postRoundTimeoutTimer`.
+- `GameSessionService.cs` — added `SessionIdleTimeout = TimeSpan.FromHours(2)` constant;
+  `RemoveSession` now calls `session.Dispose()` after removal; new `RemoveStaleSessions()` method
+  removes `GameEnd` and idle sessions, disposing each.
+- `SessionCleanupService.cs` (new) — `BackgroundService` that calls `RemoveStaleSessions()` every
+  10 minutes; logs at Info when sessions removed, Debug when none found; handles shutdown cleanly.
+- `Program.cs` — registered `SessionCleanupService` via `AddHostedService<SessionCleanupService>()`.
+- `to-do-technical.md` — session lifecycle item moved to Done; unit-test checklist extended with
+  `LastActivityAt` and `RemoveStaleSessions` test cases.
 
 ## What to do next
 
-The feature backlog (`to-do.md`) remains empty. `to-do-technical.md` has:
+`to-do-technical.md` remaining items (in priority order):
 
-1. **Session lifecycle cleanup** — IHostedService to remove stale sessions (highest value for
-   production use; prevents unbounded memory growth on a long-running server).
-2. **Player reconnect** — sessionStorage token persistence so a Blazor circuit drop doesn't
-   permanently lock a player out of their active game.
-3. **Unit tests** — xUnit + bUnit for game logic (turn management, win/loss, countdown, etc).
-4. **Input sanitisation** — server-side validation on names and game codes.
-5. **Custom favicon** — replace the default Blazor favicon with something game-themed.
+1. **Player reconnect / circuit recovery** — If a Blazor circuit drops and the player
+   reloads, their token (URL query param) is gone. Store the token in `sessionStorage` via
+   a small JS interop call on first load, and read it back on reconnect. This requires a
+   tiny JS interop module (e.g. `wwwroot/js/storage.js`) and a Blazor service or call in
+   `Game.razor`'s `OnAfterRenderAsync`. The `AddPlayer` AlreadyJoined path already handles
+   the re-join case — the reconnect just needs to rediscover the token and re-navigate.
 
-**Recommended next iteration**: Session lifecycle cleanup (IHostedService). It's a contained
-server-side change with no UI impact and meaningful production value.
+2. **Unit tests** — Add `GuessWho.Tests` (xUnit). Key tests: session creation/join, turn
+   management, win/loss transitions, `LastActivityAt` stamping, `RemoveStaleSessions`
+   (GameEnd + idle cutoff + timer disposal).
+
+3. **Input sanitisation** — server-side validation for player names (non-empty, max 20 chars,
+   strip HTML) and game codes (4 chars, alphabet check) in `GameSessionService`.
+
+4. **Custom favicon** — replace the default Blazor favicon.
 
 Good luck!

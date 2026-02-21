@@ -7,7 +7,7 @@ namespace GuessWho.Models;
 /// State changes are broadcast to subscribed Blazor components via the StateChanged event.
 /// Challenge Mode: each player picks TWO Mystery People; answers are Both / One of them / Neither.
 /// </summary>
-public sealed class GameSession
+public sealed class GameSession : IDisposable
 {
     private readonly object _lock = new();
 
@@ -50,6 +50,12 @@ public sealed class GameSession
 
     /// <summary>Token of the player who won the match. Null until a match winner is determined.</summary>
     public string? MatchWinnerToken { get; private set; }
+
+    /// <summary>
+    /// UTC timestamp of the most-recent state change. Updated by every NotifyStateChanged call.
+    /// Used by the cleanup service to detect abandoned sessions.
+    /// </summary>
+    public DateTime LastActivityAt { get; private set; } = DateTime.UtcNow;
 
     /// <summary>
     /// UTC time when the post-answer countdown started. Null when no countdown is running.
@@ -475,6 +481,19 @@ public sealed class GameSession
         Player2.BoardOrder.AddRange(p2Ids);
     }
 
-    internal void NotifyStateChanged() =>
+    internal void NotifyStateChanged()
+    {
+        LastActivityAt = DateTime.UtcNow;
         StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Releases the post-round timeout timer. Called by the cleanup service when the session
+    /// is removed from the active-sessions dictionary.
+    /// </summary>
+    public void Dispose()
+    {
+        _postRoundTimeoutTimer?.Dispose();
+        _postRoundTimeoutTimer = null;
+    }
 }

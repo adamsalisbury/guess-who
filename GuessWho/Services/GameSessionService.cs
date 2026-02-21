@@ -11,6 +11,12 @@ public sealed class GameSessionService
 {
     private readonly ConcurrentDictionary<string, GameSession> _sessions = new();
 
+    /// <summary>
+    /// A session is considered abandoned if it has had no state changes within this window.
+    /// Abandoned sessions are removed by the background cleanup service.
+    /// </summary>
+    public static readonly TimeSpan SessionIdleTimeout = TimeSpan.FromHours(2);
+
     // Uppercase letters + digits, excluding visually ambiguous characters O, 0, I, 1
     private static readonly char[] CodeAlphabet =
         "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".ToCharArray();
@@ -115,9 +121,48 @@ public sealed class GameSessionService
     public void MakePostRoundDecision(string code, string playerToken, PostRoundDecision decision) =>
         GetSession(code)?.MakePostRoundDecision(playerToken, decision);
 
-    /// <summary>Removes sessions that are empty or abandoned (no players for > 2 hours).</summary>
-    public void RemoveSession(string code) =>
-        _sessions.TryRemove(code.ToUpperInvariant().Trim(), out _);
+    /// <summary>
+    /// Removes a single session by code, disposing any server-side timers it holds.
+    /// </summary>
+    public void RemoveSession(string code)
+    {
+        if (_sessions.TryRemove(code.ToUpperInvariant().Trim(), out var session))
+            session.Dispose();
+    }
+
+    /// <summary>
+    /// Scans all active sessions and removes those that are either:
+    /// <list type="bullet">
+    ///   <item><description>In the <see cref="GamePhase.GameEnd"/> phase (game already concluded).</description></item>
+    ///   <item><description>Idle for longer than <see cref="SessionIdleTimeout"/> (abandoned sessions).</description></item>
+    /// </list>
+    /// Returns the number of sessions removed. Called periodically by <see cref="SessionCleanupService"/>.
+    /// </summary>
+    public int RemoveStaleSessions()
+    {
+        var idleCutoff = DateTime.UtcNow - SessionIdleTimeout;
+
+        // Collect stale codes first — modifying a ConcurrentDictionary while iterating is safe,
+        // but collecting first makes the intent clearer and keeps the removal loop simple.
+        var staleCodes = _sessions
+            .Where(kvp =>
+                kvp.Value.Phase == GamePhase.GameEnd ||
+                kvp.Value.LastActivityAt < idleCutoff)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        var removed = 0;
+        foreach (var code in staleCodes)
+        {
+            if (_sessions.TryRemove(code, out var session))
+            {
+                session.Dispose();
+                removed++;
+            }
+        }
+
+        return removed;
+    }
 
     private static string GenerateCode()
     {

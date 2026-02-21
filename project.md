@@ -40,7 +40,8 @@ GuessWho/                  ← solution root (also git repo root)
 │   │   ├── GameSession.cs
 │   │   └── PlayerState.cs
 │   ├── Services/
-│   │   └── GameSessionService.cs  ← singleton, owns all active sessions
+│   │   ├── GameSessionService.cs   ← singleton, owns all active sessions
+│   │   └── SessionCleanupService.cs ← BackgroundService, removes stale sessions every 10 min
 │   └── wwwroot/app.css            ← dark theme, gold accent, no Bootstrap dependency
 ├── project.md
 ├── to-do.md
@@ -64,7 +65,11 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 15)
+## Current state (after Iteration 16)
+- **Session Lifecycle Management** (Iteration 16): `GameSession` implements `IDisposable`;
+  `LastActivityAt` (UTC) stamped on every state change; `GameSessionService.RemoveStaleSessions()`
+  removes `GameEnd` and idle (> 2 h) sessions, calling `Dispose()` on each; new `SessionCleanupService`
+  (`BackgroundService`) runs every 10 minutes; `RemoveSession` now also disposes.
 - **UX Animation & Polish** (Iteration 15): 3D flip animation on face card elimination; Bootstrap
   dependency removed; dead CSS cleaned up; chat log ARIA attributes added.
 - **Challenge Mode** (Iteration 14): each player picks TWO Mystery People; answers are Both/One of them/Neither; guessing requires naming both; round-end overlay shows 4 cards (2 per player).
@@ -174,7 +179,8 @@ Lobby → CharacterSelection → Playing ⇄ RoundEnd → GameEnd
 
 ## Design decisions & known trade-offs
 - No HTTPS redirect in dev (removed `app.UseHttpsRedirection()` from template to simplify local runs)
-- Session cleanup not yet implemented — sessions persist until process restart
+- Session cleanup implemented via `SessionCleanupService` (Iteration 16): removes `GameEnd` sessions
+  and sessions idle > 2 h every 10 minutes. Each removed session is `Dispose()`d.
 - No reconnect logic for dropped Blazor circuits (future: store token in sessionStorage, re-subscribe)
 - Bootstrap CSS is included in the template but not actively used — custom CSS in `app.css` is the design system
 - `GameSession` imports `GuessWho.Data` (for `CharacterData`) to populate `BoardOrder`. Acceptable for
