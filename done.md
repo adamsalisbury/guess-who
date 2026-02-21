@@ -1,5 +1,70 @@
 # Guess Who? — Completed Work Log
 
+## Iteration 10 — End-of-round overlay consensus & post-game flow
+**Completed**: 2026-02-21
+
+### What was done
+
+#### Server-side
+- Added `PostRoundDecision` enum (`NewRound`, `EndGame`) to `Enums.cs`.
+- Added to `GameSession`:
+  - `const int WinsToWin = 5` — match win threshold.
+  - `IsMatchOver` (bool), `MatchWinnerToken` (string?) — set in `MakeGuess` when the round winner
+    reaches 5 wins.
+  - `_postRoundDecisions` (Dictionary<string, PostRoundDecision>) — private per-player decision store.
+  - `_postRoundTimeoutTimer` (System.Threading.Timer?) — fires 60s after the first decision; defaults
+    to EndGame if consensus not reached.
+  - `MakePostRoundDecision(callerToken, decision)`: records the caller's decision; starts the 60s timer
+    on the first call; executes immediately if both players chose the same option.
+  - `GetPostRoundDecision(token)` → `PostRoundDecision?`: read-only accessor for the overlay UI.
+  - `ExecuteNewRound()` (private): resets both `RoundWins` to 0 if `IsMatchOver` (Play Again), then
+    increments `RoundNumber`, calls `ResetRoundState()`, advances to `CharacterSelection`.
+  - `ExecuteEndGame()` (private): sets `Phase = GameEnd`, fires `StateChanged`.
+  - Updated `ResetRoundState()`: clears `_postRoundDecisions`, disposes the timer, resets `IsMatchOver`
+    and `MatchWinnerToken`.
+  - Updated `MakeGuess()`: after incrementing `RoundWins`, checks if winner >= `WinsToWin` and sets
+    `IsMatchOver = true` / `MatchWinnerToken`.
+  - Removed `StartNewRound(callerToken)` and `EndGame(callerToken)` (first-click-wins — replaced).
+- Updated `GameSessionService`:
+  - Added `MakePostRoundDecision(code, token, decision)` passthrough.
+  - Removed `StartNewRound` and `EndGame` passthroughs.
+
+#### Game.razor — code section
+- Replaced `NewRound()` and `LeaveGame()` with `MakeDecision(PostRoundDecision decision)`:
+  calls `GameSessionService.MakePostRoundDecision(Code, MyToken, decision)`.
+
+#### Game.razor — round-end overlay markup
+- **Match champion banner**: shown at top of overlay when `_session.IsMatchOver`. Winner sees green
+  "🏆 You win the match!"; loser sees gold "🏆 [WinnerName] wins the match!".
+- **Button label**: "Play Again" when `IsMatchOver`, "New Round" otherwise (same underlying
+  `PostRoundDecision.NewRound` value — server handles score reset).
+- **Decision chips** (`round-end-decisions`): two chips appear once either player has clicked.
+  Each chip shows the player's name and their chosen option (or "—"). Chosen chips glow gold.
+- **Status messages**: "Waiting for [opponent] to decide…" (you decided, they haven't) or
+  "Waiting to agree… game ends automatically in 60s if unresolved" (both decided, different choices).
+- **Button state**: both buttons disabled after this player clicks. Unchosen button fades to 28%
+  opacity; chosen button stays at full opacity.
+
+#### Game.razor.css — new rules
+- `.round-end-match-banner` / `--win` / `--loss` — champion banner with popIn animation.
+- `.round-end-decisions`, `.decision-chip` / `--chosen` — per-player decision chip row.
+- `.decision-chip-name`, `.decision-chip-choice` — chip content typography.
+- `.round-end-waiting` — consensus status message (italic, muted).
+- `.round-end-actions .btn:disabled:not(.btn--chosen)` — unchosen disabled button at 28% opacity.
+
+- Build result: **0 errors, 0 warnings**.
+
+### Notes
+- The 60s timeout callback acquires `_lock` before checking `Phase` — safe for timer thread-pool use.
+- `GetPostRoundDecision` reads the private dictionary without a lock. Reads happen on the render thread
+  after `StateChanged` fires (post-mutation) so race conditions are not a concern at this scale.
+- Play Again does not need a separate enum value: `ExecuteNewRound` detects `IsMatchOver` and resets
+  scores before calling `ResetRoundState`, which clears `IsMatchOver` for the fresh match.
+- If a player disconnects during RoundEnd before deciding, the 60s timer will eventually fire and
+  default to EndGame. This is acceptable for now; a `PlayerDisconnected` signal would be the upgrade path.
+
+---
+
 ## Iteration 9 — Guessing mechanic & round-end overlay
 **Completed**: 2026-02-21
 

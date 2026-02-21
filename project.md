@@ -64,7 +64,7 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 9)
+## Current state (after Iteration 10)
 - Landing page functional: name entry, New Game (creates session), Join Game (validates code, joins session)
 - Lobby page functional: both players shown by name, connection status, auto-navigation to game page
 - Both players auto-navigate to `/game/{Code}` when lobby is full
@@ -91,24 +91,31 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
   - Clicking a card in guess mode → confirmation panel ("A wrong guess means you lose the round immediately")
   - Confirm → `GameSessionService.MakeGuess(Code, MyToken, charId)` → phase transitions to `RoundEnd`
   - Correct guess: caller wins round, `RoundWins++`. Wrong guess: opponent wins round, `RoundWins++`
-- **Round-end overlay** (Iteration 9, simplified):
+  - `MakeGuess` also sets `IsMatchOver = true` + `MatchWinnerToken` when winner reaches 5 wins
+- **Round-end overlay with full consensus** (Iteration 10):
   - Fixed full-screen dark overlay with animated modal card shown to both players simultaneously
-  - Outcome heading (green "You win the round! 🎉" or red "You lose the round"), explanation subtext
+  - Outcome heading (green "You win the round! 🎉" or red "You lose the round")
+  - **Match champion banner**: when `IsMatchOver`, shows "🏆 You win the match!" (green for winner,
+    gold for loser)
   - Both Mystery People revealed as gold-glowing `md` FaceCards
   - Championship score recap
-  - **New Round** (gold) — first-click-wins; resets round state, back to CharacterSelection
-  - **End Game** (secondary) — sets `Phase = GameEnd`; both circuits navigate to `/` in `OnSessionStateChanged`
-  - Note: full consensus mechanism (both must agree, 60-second timeout, 5-round match champion) is next iteration
-- **Face elimination** (Iteration 8): active player clicks own board to flip faces down; `IsEliminatable` red hover;
-  Mystery Person immune. Opponent board syncs in real time (free consequence of `StateChanged` pattern).
-- **Turn countdown** (Iteration 7): `GameSession.CountdownStartedAt` set by `AnswerQuestion()`;
-  client-side 500ms timer drives display and auto-fires `StartNextTurn` after 10s (active player only).
+  - **Consensus mechanism**: both players must click the same option before it executes:
+    - **New Round** / **Play Again** (gold) — `PostRoundDecision.NewRound`
+    - **End Game** (secondary) — `PostRoundDecision.EndGame`
+    - Decision chips show each player's choice (or "—") once either clicks; chosen chip glows gold
+    - Buttons disable after clicking — no changing your mind
+    - "Waiting for [opponent] to decide…" shown when you've decided but they haven't
+    - Disagreement: "Waiting to agree… game ends automatically in 60s if unresolved"
+    - 60-second server-side `System.Threading.Timer` defaults to EndGame on expiry
+  - When `IsMatchOver` and both pick "Play Again": `ExecuteNewRound` resets both `RoundWins` to 0
+- **Face elimination** (Iteration 8): active player clicks own board to flip faces down; Mystery Person immune. Opponent board syncs in real time.
+- **Turn countdown** (Iteration 7): `GameSession.CountdownStartedAt` set by `AnswerQuestion()`; client-side 500ms timer drives display and auto-fires `StartNextTurn` after 10s (active player only).
 - Build: **0 errors, 0 warnings**
 
 ## GameSession phase flow
 ```
 Lobby → CharacterSelection → Playing ⇄ RoundEnd → GameEnd
-                               ↑_________________________|  (StartNewRound resets to CharacterSelection)
+                               ↑_________________________|  (ExecuteNewRound resets to CharacterSelection)
 ```
 
 ### Key GameSession methods
@@ -119,10 +126,11 @@ Lobby → CharacterSelection → Playing ⇄ RoundEnd → GameEnd
 | `AskQuestion` | Playing, active player | Posts question, sets `QuestionAsked` |
 | `AnswerQuestion` | Playing, inactive player | Posts answer, starts countdown |
 | `EliminateCharacter` | Playing, active player | Flips face on own board |
-| `MakeGuess` | Playing, active player | Resolves round → RoundEnd |
+| `MakeGuess` | Playing, active player | Resolves round → RoundEnd; sets IsMatchOver on 5 wins |
+| `MakePostRoundDecision` | RoundEnd | Records player's choice; executes on consensus or 60s timeout |
 | `StartNextTurn` | Playing | Flips active player, resets per-turn state |
-| `StartNewRound` | RoundEnd | Increments round, resets state → CharacterSelection |
-| `EndGame` | RoundEnd | → GameEnd (both clients navigate home) |
+| `ExecuteNewRound` (private) | called from MakePostRoundDecision | Resets round → CharacterSelection; resets scores if IsMatchOver |
+| `ExecuteEndGame` (private) | called from MakePostRoundDecision | → GameEnd (both clients navigate home) |
 
 ## Design decisions & known trade-offs
 - No HTTPS redirect in dev (removed `app.UseHttpsRedirection()` from template to simplify local runs)
@@ -132,6 +140,8 @@ Lobby → CharacterSelection → Playing ⇄ RoundEnd → GameEnd
 - `GameSession` imports `GuessWho.Data` (for `CharacterData`) to populate `BoardOrder`. Acceptable for
   a single-project small game; would separate in a multi-project architecture.
 - Chat auto-scroll uses `eval` JS interop (pragmatic). A proper JS module can replace it in a polish iteration.
-- **Round-end overlay** is first-click-wins (simplified). Full consensus + 60s timeout is next to-do item.
+- `_postRoundTimeoutTimer` fires on a thread-pool thread; its callback acquires `_lock` before reading `Phase`.
+- `GetEliminateCallback` and `GetGuessCallback` both use `EventCallback.Factory.Create<Character?>` to avoid Razor ternary type-inference compiler errors.
 - `EndReason` property name avoids naming conflict with the `RoundEndReason` enum type in the same namespace.
-- `GetGuessCallback` and `GetEliminateCallback` both use `EventCallback.Factory.Create<Character?>` to avoid Razor ternary type-inference compiler errors.
+- `GetPostRoundDecision(token)` reads `_postRoundDecisions` without a lock — safe because reads happen after
+  `StateChanged` fires (post-mutation) and the game has at most 2 players on 2 threads.
