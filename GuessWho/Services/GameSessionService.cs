@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using GuessWho.Models;
 
 namespace GuessWho.Services;
@@ -22,13 +23,33 @@ public sealed class GameSessionService
         "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".ToCharArray();
 
     private const int CodeLength = 4;
+    private const int MaxNameLength = 20;
+    private const string FallbackName = "Player";
+
+    private static readonly Regex HtmlTagPattern =
+        new("<[^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Sanitises a player name: strips HTML tags, trims whitespace, enforces a 20-character
+    /// maximum. Returns <c>"Player"</c> if the result would otherwise be empty.
+    /// </summary>
+    private static string SanitiseName(string name)
+    {
+        var stripped = HtmlTagPattern.Replace(name ?? "", "").Trim();
+        if (stripped.Length > MaxNameLength)
+            stripped = stripped[..MaxNameLength].TrimEnd();
+        return string.IsNullOrWhiteSpace(stripped) ? FallbackName : stripped;
+    }
 
     /// <summary>
     /// Creates a new session and immediately adds the creator as Player 1.
     /// Returns the fully initialised session with a unique game code.
+    /// The player name is sanitised before being stored.
     /// </summary>
     public GameSession CreateSession(string playerToken, string playerName)
     {
+        var safeName = SanitiseName(playerName);
+
         // Spin until we successfully claim a unique code
         while (true)
         {
@@ -37,7 +58,7 @@ public sealed class GameSessionService
 
             if (_sessions.TryAdd(code, session))
             {
-                session.AddPlayer(playerToken, playerName);
+                session.AddPlayer(playerToken, safeName);
                 return session;
             }
         }
@@ -45,6 +66,8 @@ public sealed class GameSessionService
 
     /// <summary>
     /// Attempts to join an existing session by code.
+    /// The code is normalised (uppercase, trimmed) before lookup.
+    /// The player name is sanitised before being stored.
     /// The returned session is non-null on Success or AlreadyJoined.
     /// </summary>
     public (JoinResult Result, GameSession? Session) JoinSession(
@@ -57,7 +80,8 @@ public sealed class GameSessionService
         if (!_sessions.TryGetValue(normalised, out var session))
             return (JoinResult.NotFound, null);
 
-        var result = session.AddPlayer(playerToken, playerName);
+        var safeName = SanitiseName(playerName);
+        var result = session.AddPlayer(playerToken, safeName);
 
         var returnedSession = result is JoinResult.Success or JoinResult.AlreadyJoined
             ? session

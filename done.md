@@ -1,5 +1,77 @@
 # Guess Who? — Completed Work Log
 
+## Iteration 18 — Unit Tests, Input Sanitisation, Custom Favicon, HTTP Redirect Doc
+**Completed**: 2026-02-21
+
+### What was done
+
+#### `GuessWho.Tests/` (new project)
+New xUnit test project added to the solution (`GuessWho.Tests.csproj`).
+References `GuessWho.csproj` via `<ProjectReference>`. Includes `<FrameworkReference
+Include="Microsoft.AspNetCore.App" />` so it can compile against the `Sdk.Web` main project.
+Packages: `xunit`, `xunit.runner.visualstudio`, `Microsoft.NET.Test.Sdk`, `FluentAssertions 6.12`.
+
+#### `GameSessionTests.cs` (58 tests)
+Full coverage of `GameSession`:
+- `AddPlayer`: first player, second player, session full, same-token reconnect.
+- `IsActivePlayer`: matching token, non-active token, empty string.
+- `SelectMysteryPeople`: both players confirm → Playing phase; Player1 first turn; 24-card board orders;
+  round number = 1; identical IDs is no-op; already-confirmed is no-op; wrong phase is no-op.
+- `StartNextTurn`: passes turn; round-trips back to P1; inactive player is no-op; resets
+  `QuestionAsked`; cancels countdown.
+- `AskQuestion`: appends to log; sets `QuestionAsked`; inactive player is no-op; second question same
+  turn is no-op; empty/whitespace is no-op; trims whitespace.
+- `AwaitingAnswer`: false before question, true after question, false after answer.
+- `AnswerQuestion`: appends answer; active player is no-op; no pending question is no-op; starts countdown.
+- `EliminateCharacter`: adds to set; inactive player is no-op; mystery person immune; no duplicate; wrong phase.
+- `MakeGuess`: correct guess → winner/wins/EndReason; order-independent; wrong guess → opponent wins;
+  advances to RoundEnd; cancels countdown; identical IDs is no-op; inactive player is no-op;
+  reach win threshold → `IsMatchOver`/`MatchWinnerToken`; below threshold stays false.
+- `MakePostRoundDecision`: both NewRound → CharacterSelection; increments round; clears round state;
+  both EndGame → GameEnd; Play Again resets both players' wins; wrong phase is no-op; disagreement stays in RoundEnd.
+- `GetPostRoundDecision`: null before, value after.
+- `LastActivityAt`: updated after state change.
+- `GetPlayer`/`GetOpponent`: known token, unknown token, correct cross-lookup.
+
+#### `GameSessionServiceTests.cs` (35 tests)
+Full coverage of `GameSessionService`:
+- `CreateSession`: Player1 set; valid 4-char code matching alphabet regex; session retrievable; unique codes.
+- `JoinSession`: success; becomes full; invalid code → NotFound; full session → Full; same token →
+  AlreadyJoined; normalises to uppercase; trims whitespace.
+- `GetSession`: existing code; non-existent → null; normalises case.
+- Input sanitisation: HTML tags stripped from name; name > 20 chars truncated; HTML in joined player stripped.
+- `RemoveSession`: existing code removed; non-existent code is no-op.
+- `RemoveStaleSessions`: GameEnd session removed; active session kept; idle session removed (reflection);
+  recently-active session kept; empty service returns 0; mixed sessions → only stale removed.
+
+#### `GameSessionService.cs` — input sanitisation
+`SanitiseName(string name)` private static method added:
+- Regex `<[^>]*>` (compiled) strips HTML tags.
+- `Trim()` removes leading/trailing whitespace.
+- Truncates to 20 characters (`MaxNameLength = 20`).
+- Falls back to `"Player"` if result is empty.
+`CreateSession` and `JoinSession` now call `SanitiseName` before `AddPlayer`.
+`using System.Text.RegularExpressions` added at top of file.
+
+#### `wwwroot/favicon.svg` (new file)
+Custom SVG favicon: 32×32, `#0d1117` card background (rx=5 rounded), gold (`#f0a500`) face
+silhouette (ellipse head + hair ellipse), bold `#0d1117` "?" centred. Theme-consistent with the
+game's dark/gold palette.
+
+#### `App.razor` — favicon reference
+Added `<link rel="icon" type="image/svg+xml" href="favicon.svg" />` before the existing PNG
+`<link>`. Modern browsers use the SVG; older browsers fall back to the PNG.
+
+### HTTP redirect decision (documented)
+`app.UseHttpsRedirection()` remains absent. Documented in `project.md` under Design Decisions:
+game targets dev/LAN contexts; HTTPS belongs at the reverse-proxy layer if deployed.
+
+### Results
+- **93 tests, all passed** (`dotnet test` green, 1.19 s)
+- **0 build errors, 0 warnings**
+
+---
+
 ## Iteration 17 — Player Reconnect / Circuit Recovery
 **Completed**: 2026-02-21
 

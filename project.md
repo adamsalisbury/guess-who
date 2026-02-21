@@ -44,8 +44,12 @@ GuessWho/                  ← solution root (also git repo root)
 │   │   └── SessionCleanupService.cs ← BackgroundService, removes stale sessions every 10 min
 │   └── wwwroot/
 │       ├── app.css                ← dark theme, gold accent, no Bootstrap dependency
+│       ├── favicon.svg            ← custom face-card favicon (SVG, game-themed)
 │       └── js/
 │           └── storage.js         ← ES module: saveSession / loadSession / clearSession
+├── GuessWho.Tests/        ← xUnit test project (93 tests)
+│   ├── GameSessionTests.cs      ← GameSession unit tests
+│   └── GameSessionServiceTests.cs ← GameSessionService unit tests
 ├── project.md
 ├── to-do.md
 ├── to-do-technical.md
@@ -68,7 +72,14 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 17)
+## Current state (after Iteration 18)
+- **Unit tests, input sanitisation, custom favicon** (Iteration 18):
+  93 xUnit tests in `GuessWho.Tests` covering `GameSession` (turn flow, question/answer, elimination,
+  guess resolution, post-round consensus) and `GameSessionService` (create/join/get/remove, cleanup).
+  `GameSessionService` now sanitises player names server-side: HTML tags stripped via regex,
+  whitespace trimmed, max 20 chars enforced, empty-after-strip falls back to "Player".
+  Custom SVG favicon (`wwwroot/favicon.svg`) — face-card silhouette with "?" — replaces the default.
+  `App.razor` serves the SVG favicon first, PNG as fallback. All 93 tests pass; 0 build errors.
 - **Player Reconnect / Circuit Recovery** (Iteration 17): `wwwroot/js/storage.js` ES module
   (`saveSession` / `loadSession` / `clearSession` via `sessionStorage`). `Game.razor`
   `OnAfterRenderAsync(firstRender)` saves `{code, name, token}` to sessionStorage when URL params
@@ -187,7 +198,10 @@ Lobby → CharacterSelection → Playing ⇄ RoundEnd → GameEnd
 | `ExecuteEndGame` (private) | called from MakePostRoundDecision | → GameEnd (both clients navigate home) |
 
 ## Design decisions & known trade-offs
-- No HTTPS redirect in dev (removed `app.UseHttpsRedirection()` from template to simplify local runs)
+- **HTTP redirect**: `app.UseHttpsRedirection()` was removed from the template default and will remain
+  absent. The game runs purely in development/LAN contexts; there is no TLS termination setup. If
+  deployed behind a reverse proxy (nginx, Caddy), HTTPS redirect belongs at the proxy layer, not in
+  the app. No action needed in the .NET code.
 - Session cleanup implemented via `SessionCleanupService` (Iteration 16): removes `GameEnd` sessions
   and sessions idle > 2 h every 10 minutes. Each removed session is `Dispose()`d.
 - Reconnect recovery via `sessionStorage` (Iteration 17): `Game.razor` saves/restores `{code,name,token}`
