@@ -64,7 +64,7 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 7)
+## Current state (after Iteration 8)
 - Landing page functional: name entry, New Game (creates session), Join Game (validates code, joins session)
 - Lobby page functional: both players shown by name, connection status, auto-navigation to game page
 - Both players auto-navigate to `/game/{Code}` when lobby is full
@@ -101,6 +101,16 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
   Each player's board order is independently shuffled.
 - `GameSession.ShuffleBoardOrders()`: private helper; uses `Random.Shared.Shuffle(Span<T>)` on a cloned
   array; called once inside the `_lock` at the moment of phase transition; also clears `_chatLog`.
+- **Face elimination** (Iteration 8):
+  - `GameSession.EliminateCharacter(callerToken, characterId)`: active player only, Mystery Person immune,
+    idempotent. Fires `StateChanged` so both circuits see the flip immediately.
+  - `GameSessionService.EliminateCharacter(code, token, characterId)`: thin passthrough.
+  - `FaceCard`: new `IsEliminatable` parameter adds `.face-card--eliminatable` CSS class + red hover
+    (border, glow, name tint, lift) overriding the default blue interactive highlight.
+  - `Game.razor`: `GetEliminateCallback()` returns typed `EventCallback<Character?>` via
+    `EventCallback.Factory.Create` to avoid Razor ternary type-inference issues. Board header counts
+    update dynamically (e.g. "18 remaining · 6 eliminated"). Opponent board sync is free — reads
+    `_opponent.EliminatedIds` on every render triggered by `StateChanged`.
 - Build: **0 errors, 0 warnings**
 
 ## Design decisions & known trade-offs

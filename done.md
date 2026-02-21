@@ -242,6 +242,50 @@ Append-only chronological record. Most recent entry at the bottom.
 
 ---
 
+## Iteration 8 — Face elimination (own board)
+**Completed**: 2026-02-21
+
+### What was done
+- Added `GameSession.EliminateCharacter(callerToken, characterId)`:
+  - Guarded on Playing phase, active player only, Mystery Person immunity (`MysteryPersonId` check), and
+    idempotency (`HashSet.Add` returns false if already present — double-click safe).
+  - Fires `NotifyStateChanged()` on every successful elimination so both circuits re-render immediately.
+- Added `GameSessionService.EliminateCharacter(code, token, characterId)` thin passthrough.
+- Updated `FaceCard.razor`:
+  - New `IsEliminatable` boolean parameter (default: false). Adds `.face-card--eliminatable` CSS class
+    and tooltip `"Click to eliminate"` when true.
+- Updated `FaceCard.razor.css`:
+  - `.face-card--eliminatable:hover` overrides the default blue interactive highlight with a red border
+    (`#e05555`), red box-shadow, red name tint, and a 2px lift animation. Uses `!important` to override
+    the generic `[style*="cursor:pointer"]:hover` blue rule.
+- Updated `Game.razor` own board foreach:
+  - `canEliminate = _isMyTurn && !isMystery && !isEliminated` computed per card.
+  - `GetEliminateCallback(int characterId, bool canEliminate)`: returns a properly typed
+    `EventCallback<Character?>` using `EventCallback.Factory.Create` when active; avoids Razor ternary
+    lambda type-inference issues.
+  - `EliminateCard(int characterId)`: client-side guard (`_isMyTurn && MyToken is not null`) then
+    calls `GameSessionService.EliminateCharacter`. Server independently guards again.
+  - Mystery Person card: `IsEliminatable=false`, `OnClick=default` — gold glow communicates immunity.
+  - Already-eliminated cards: `IsEliminatable=false`, `OnClick=default`, `FaceDown=true` — read-only.
+- Board header counts updated dynamically:
+  - Own board: "24 remaining" → "N remaining · M eliminated" once eliminations begin.
+  - Opponent board: "24 remaining" → "M eliminated" once they start flipping.
+- Opponent elimination sync: `_opponent.EliminatedIds` is read on every render; since `StateChanged`
+  fires on each elimination, both circuits re-render immediately and the opponent's top board flips
+  in real time without any additional code.
+- Build result: **0 errors, 0 warnings**.
+
+### Notes
+- Elimination is only available to the active player (turn guard on both client and server).
+  During the post-answer countdown, `ActivePlayerToken` still belongs to the active player, so
+  elimination remains available throughout the countdown window — consistent with the spec.
+- `EliminatedIds` is a `HashSet<int>` on `PlayerState` — O(1) add and contains checks, safe
+  double-click protection. Server-side `Add()` returns false if already present.
+- No separate "opponent sync" code was needed — iteration 9 (opponent elimination sync) is effectively
+  done as a free consequence of how the event pattern works.
+
+---
+
 ## Iteration 7 — Turn end mechanics
 **Completed**: 2026-02-21
 
