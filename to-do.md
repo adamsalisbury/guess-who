@@ -4,37 +4,49 @@ Items are listed in priority order. Pick the top item each iteration.
 
 ---
 
-## 1. Guessing mechanic ← NEXT
-The active player can, instead of asking a question, make a direct guess: they name the opponent's
-Mystery Person. If correct → win the round. If wrong → immediate loss. A "Make a Guess" button
-or special input mode initiates this. Requires a confirmation step to prevent accidental guesses.
+## 1. End-of-round overlay consensus & post-game flow ← NEXT
+The round-end overlay exists (Iteration 9) but uses first-click-wins. Full spec:
+- Both players must choose the **same** option before it takes effect.
+- If they choose different options: show "Waiting for opponent to decide…" to the waiting player.
+- 60-second timeout: if both don't agree within 60s, default to End Game.
+- If one player disconnects before deciding: default to End Game.
+- Match winner (5 round wins): replace "New Round" with "Play Again" (resets championship score to 0–0).
 
-## 2. End-of-round overlay & post-game flow
-When a round ends:
-- Overlay shown to both players: outcome, both Mystery People revealed, current championship score.
-- Both players choose **New Round** or **End Game**. Both must agree before action is taken.
-- Disagreement: show "Waiting for opponent…"; resolve when both agree; 60-second timeout defaults to End Game.
-- If one player disconnects before deciding → End Game.
-- Match winner (5 round wins): replace "New Round" with "Play Again" (resets championship score).
+**Server-side changes needed:**
+- Add `PostRoundDecision` enum: `NewRound`, `EndGame`.
+- Add `Dictionary<string, PostRoundDecision> PostRoundDecisions` to `GameSession`.
+- Add `MakePostRoundDecision(token, decision)`:
+  - Records the caller's decision.
+  - If both players have chosen the same option → execute immediately (StartNewRound or set GameEnd).
+  - If both chosen but differ → fire StateChanged (show disagreement UI).
+  - Start a server-side 60s `System.Threading.Timer` on first decision; on expiry, if still in RoundEnd → set GameEnd.
+- Remove existing `StartNewRound(callerToken)` and `EndGame(callerToken)` (first-click-wins) — replace with `MakePostRoundDecision`.
 
-## 3. Championship scoring
-Track round wins per player across the session. Score displayed persistently (e.g. "Alex 2 – 1 Bernard").
-First to 5 round wins → match champion. Reset on Play Again.
+**Client-side:**
+- Show both players' choices in the overlay (e.g., a chip showing "Alex: New Round | Bernard: End Game").
+- Buttons switch to "pending" state after clicking; show "Waiting for opponent…".
+- Handle 5-round match champion: heading changes to "Alex wins the MATCH! 🏆"; "New Round" replaced by "Play Again".
 
-## 4. Chat log readability
+## 2. Championship scoring display
+Championship score already tracked (`RoundWins`). Ensure:
+- Score bar on the game board always shows correct values.
+- Match champion heading in round-end overlay ("Alex wins the MATCH!") when either player reaches 5 wins.
+- "Play Again" resets `RoundWins` to 0 for both players.
+
+## 3. Chat log readability
 Visual distinction between: questions (named, styled as question), answers (named, styled as answer),
 system events (e.g. "Alex eliminated a face"), and turn boundaries (dividers between turns).
 
-## 5. Suggested questions UI
+## 4. Suggested questions UI
 A collapsible panel or inline chip list of attribute-based yes/no questions ("Does your person wear
 glasses?", "Does your person have blonde hair?", etc.) that, when clicked, populate the chat input.
 Speeds up gameplay and helps new players.
 
-## 6. Face card visual polish
+## 5. Face card visual polish
 Iterate on face card rendering for more character and distinctiveness — more expressive facial
 features, colour fills, accessory details. Still SVG/CSS only.
 
-## 7. Challenge mode
+## 6. Challenge mode
 Each player picks two Mystery People. Questions may have "Both"/"Either" answers. Modified win
 condition: correctly identify both of the opponent's Mystery People.
 
@@ -42,6 +54,5 @@ condition: correctly identify both of the opponent's Mystery People.
 
 ### Completed / removed
 - **Face elimination (own board)** — done in Iteration 8.
-- **Opponent elimination sync (top panel)** — free consequence of Iteration 8: `_opponent.EliminatedIds`
-  is read on every render; `StateChanged` fires on each elimination, so both circuits re-render and
-  the opponent top board flips in real time automatically.
+- **Opponent elimination sync (top panel)** — free consequence of Iteration 8.
+- **Guessing mechanic** — done in Iteration 9. Simplified round-end overlay (first-click-wins) included.

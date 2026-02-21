@@ -98,6 +98,27 @@ public sealed class GameSessionService
     public void EliminateCharacter(string code, string playerToken, int characterId) =>
         GetSession(code)?.EliminateCharacter(playerToken, characterId);
 
+    /// <summary>
+    /// Resolves the round by the active player guessing the opponent's Mystery Person.
+    /// No-ops if the session is not found, caller is not active, or phase is not Playing.
+    /// </summary>
+    public void MakeGuess(string code, string playerToken, int characterId) =>
+        GetSession(code)?.MakeGuess(playerToken, characterId);
+
+    /// <summary>
+    /// Resets per-round state and begins a new round in the CharacterSelection phase.
+    /// No-ops if the session is not found, caller is not a participant, or phase is not RoundEnd.
+    /// </summary>
+    public void StartNewRound(string code, string playerToken) =>
+        GetSession(code)?.StartNewRound(playerToken);
+
+    /// <summary>
+    /// Ends the game session and signals both players to return to the landing page.
+    /// No-ops if the session is not found, caller is not a participant, or phase is not RoundEnd.
+    /// </summary>
+    public void EndGame(string code, string playerToken) =>
+        GetSession(code)?.EndGame(playerToken);
+
     /// <summary>Removes sessions that are empty or abandoned (no players for > 2 hours).</summary>
     public void RemoveSession(string code) =>
         _sessions.TryRemove(code.ToUpperInvariant().Trim(), out _);

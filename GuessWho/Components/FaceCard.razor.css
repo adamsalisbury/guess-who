@@ -134,3 +134,22 @@
 .face-card--eliminatable:active {
     transform: translateY(0);
 }
+
+/* ── Guessable — blue border + glow on hover ── */
+/* Distinct from the default interactive blue — stronger glow signals a high-stakes action */
+.face-card--guessable:hover .face-card__art {
+    border-color: #58a6ff !important;
+    box-shadow: 0 0 14px rgba(88, 166, 255, 0.55) !important;
+}
+
+.face-card--guessable:hover .face-card__name {
+    color: #58a6ff;
+}
+
+.face-card--guessable:hover {
+    transform: translateY(-3px);
+}
+
+.face-card--guessable:active {
+    transform: translateY(0);
+}

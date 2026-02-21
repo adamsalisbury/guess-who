@@ -1,9 +1,9 @@
 @using GuessWho.Models
 
-<div class="face-card face-card--@Size @(FaceDown ? "face-card--down" : "") @(IsMystery ? "face-card--mystery" : "") @(IsEliminatable ? "face-card--eliminatable" : "")"
+<div class="face-card face-card--@Size @(FaceDown ? "face-card--down" : "") @(IsMystery ? "face-card--mystery" : "") @(IsEliminatable ? "face-card--eliminatable" : "") @(IsGuessable ? "face-card--guessable" : "")"
      @onclick="HandleClick"
      style="@(OnClick.HasDelegate ? "cursor:pointer" : "")"
-     title="@(IsEliminatable ? "Click to eliminate" : null)"
+     title="@(IsEliminatable ? "Click to eliminate" : IsGuessable ? "Click to guess this person" : null)"
 >
 
     <div class="face-card__art">
@@ -155,6 +155,12 @@
     /// Should be set together with an OnClick handler for elimination.
     /// </summary>
     [Parameter] public bool IsEliminatable { get; set; } = false;
+
+    /// <summary>
+    /// When true, renders the card with a blue hover highlight indicating the player can guess it.
+    /// Used on the opponent's board in guess mode. Should be paired with an OnClick handler.
+    /// </summary>
+    [Parameter] public bool IsGuessable { get; set; } = false;
 
     /// <summary>Optional click handler. When set, card becomes interactive (pointer cursor).</summary>
     [Parameter] public EventCallback<Character?> OnClick { get; set; }

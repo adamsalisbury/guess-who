@@ -32,6 +32,12 @@ public sealed class GameSession
     public bool AwaitingAnswer =>
         QuestionAsked && (_chatLog.Count == 0 || _chatLog[^1].Kind != ChatMessageKind.Answer);
 
+    /// <summary>How the current round ended. Null while the round is still in progress.</summary>
+    public RoundEndReason? EndReason { get; private set; }
+
+    /// <summary>Token of the player who won the most-recently-completed round. Null during play.</summary>
+    public string? RoundWinnerToken { get; private set; }
+
     /// <summary>
     /// UTC time when the post-answer countdown started. Null when no countdown is running.
     /// Read from any thread for display purposes (no lock required for reads).
@@ -208,6 +214,100 @@ public sealed class GameSession
 
             NotifyStateChanged();
         }
+    }
+
+    /// <summary>
+    /// Resolves the round by the active player guessing the opponent's Mystery Person.
+    /// A correct guess wins the round; wrong loses it immediately.
+    /// No-ops if phase is not Playing or caller is not the active player.
+    /// </summary>
+    public void MakeGuess(string callerToken, int guessedCharacterId)
+    {
+        lock (_lock)
+        {
+            if (Phase != GamePhase.Playing) return;
+            if (callerToken != ActivePlayerToken) return;
+
+            var opponent = GetOpponent(callerToken);
+            if (opponent is null) return;
+
+            var guesser = GetPlayer(callerToken)!;
+            var isCorrect = guessedCharacterId == opponent.MysteryPersonId;
+
+            if (isCorrect)
+            {
+                RoundWinnerToken = callerToken;
+                guesser.RoundWins++;
+            }
+            else
+            {
+                // Wrong guess — opponent wins the round
+                RoundWinnerToken = opponent.Token;
+                opponent.RoundWins++;
+            }
+
+            EndReason = isCorrect ? RoundEndReason.CorrectGuess : RoundEndReason.WrongGuess;
+            CountdownStartedAt = null;  // cancel any running countdown
+            Phase = GamePhase.RoundEnd;
+            NotifyStateChanged();
+        }
+    }
+
+    /// <summary>
+    /// Starts a new round within the same session. Resets per-round state and returns
+    /// both players to the CharacterSelection phase. Championship scores are preserved.
+    /// No-ops if phase is not RoundEnd or the caller is not a session participant.
+    /// </summary>
+    public void StartNewRound(string callerToken)
+    {
+        lock (_lock)
+        {
+            if (Phase != GamePhase.RoundEnd) return;
+            if (GetPlayer(callerToken) is null) return;
+
+            RoundNumber++;
+            ResetRoundState();
+            Phase = GamePhase.CharacterSelection;
+            NotifyStateChanged();
+        }
+    }
+
+    /// <summary>
+    /// Ends the game session and signals both clients to return to the landing page.
+    /// No-ops if phase is not RoundEnd or the caller is not a session participant.
+    /// </summary>
+    public void EndGame(string callerToken)
+    {
+        lock (_lock)
+        {
+            if (Phase != GamePhase.RoundEnd) return;
+            if (GetPlayer(callerToken) is null) return;
+
+            Phase = GamePhase.GameEnd;
+            NotifyStateChanged();
+        }
+    }
+
+    /// <summary>
+    /// Resets all per-round mutable state on both players and on the session.
+    /// Championship scores (RoundWins) are NOT touched. Must be called inside _lock.
+    /// </summary>
+    private void ResetRoundState()
+    {
+        foreach (var player in new[] { Player1, Player2 })
+        {
+            if (player is null) continue;
+            player.MysteryPersonId = null;
+            player.EliminatedIds.Clear();
+            player.BoardOrder.Clear();
+        }
+
+        _chatLog.Clear();
+        QuestionAsked = false;
+        CountdownStartedAt = null;
+        ActivePlayerToken = "";
+        RoundWinnerToken = null;
+        EndReason = null;
     }
 
     public PlayerState? GetPlayer(string token) =>

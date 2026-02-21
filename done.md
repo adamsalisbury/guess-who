@@ -1,244 +1,83 @@
-# Guess Who? — Done Log
+# Guess Who? — Completed Work Log
 
-Append-only chronological record. Most recent entry at the bottom.
-
----
-
-## Iteration 1 — Landing page & lobby
-**Completed**: 2026-02-20
-
-### What was done
-- Scaffolded ASP.NET Core 8 Blazor Server project (`GuessWho/GuessWho.csproj`) with a solution file.
-- Defined all domain models: `Character`, `PlayerState`, `GameSession`, and supporting enums
-  (`HairColor`, `EyeColor`, `HairLength`, `GamePhase`, `JoinResult`).
-- Defined all 24 characters in `CharacterData.All` with full attribute sets (hair colour, eye colour,
-  glasses, hat, facial hair, hair length, bald, rosy cheeks, big nose). Character data is ready for
-  face card rendering in iteration 2.
-- Implemented `GameSessionService` (singleton): creates sessions with unique 4-character codes
-  (alphabet excludes O, 0, I, 1), thread-safe player slot assignment via `GameSession._lock`.
-- Built **Landing page** (`/`): name entry (required, max 20 chars), "New Game" button (creates session,
-  navigates to lobby), "Join Game" button (reveals code input, validates code exists, joins session,
-  navigates to lobby). Error states for empty name, bad code, full session.
-- Built **Lobby page** (`/lobby/{Code}`): displays both player names with connection status
-  (green "Connected" / grey "Waiting…"), game code prominently displayed for sharing, animated
-  waiting state with dot-pulse, instant "Starting…" confirmation when both players connect,
-  auto-navigation to game page after 1.2s.
-- Built **Game page** (`/game/{Code}`): placeholder showing player names and session state.
-  Full board implementation deferred to later iterations.
-- Wrote custom CSS (`wwwroot/app.css`): dark theme (#0d1117 base), gold accent (#f0a500),
-  card-based layouts, smooth animations (spin, fadeSlideDown, dotPulse, popIn), no Bootstrap.
-- Removed all template boilerplate (Counter, Weather, NavMenu).
-- Build result: **0 errors, 0 warnings**.
-
-### Notes
-- Player identity uses URL query params (`?name=…&token=<guid>`). Token is generated on the landing
-  page and passed forward. No sessionStorage or cookies needed for iteration 1.
-- Inter-player real-time: `GameSession.StateChanged` C# event; both Blazor circuits subscribe.
-  Player 2's `Lobby.razor` re-renders when Player 1's session state changes, then auto-navigates.
-- Session cleanup not implemented (sessions live until process restart). Tracked in `to-do-technical.md`.
-
----
-
-## Iteration 2 — Character data & face card rendering
-**Completed**: 2026-02-20
-
-### What was done
-- Created **`FaceCard.razor`** (`Components/FaceCard.razor` + `FaceCard.razor.css`): a reusable Blazor
-  component that renders any of the 24 characters as a stylised SVG portrait derived entirely from
-  attribute data — no external image files.
-  - **Hair**: non-bald characters get a hair-cap ellipse (colour-matched to attribute) with the face
-    ellipse overlaid on top. Long-haired characters also get narrow side panels extending below the face.
-    Bald characters skip the hair cap entirely.
-  - **Eyes**: white sclera ellipses, coloured iris circles, dark pupils, and bright highlights.
-  - **Eyebrows**: arched path coloured by hair colour.
-  - **Nose**: subtle curved path normally; wider curved path + tinted oval for big-nose characters.
-  - **Mouth**: drawn only when no facial hair (beard visually covers the mouth area).
-  - **Rosy cheeks**: semi-transparent pink ellipses on both cheeks.
-  - **Facial hair**: closed moustache path + beard ellipse covering lower face, coloured by hair attribute.
-  - **Glasses**: two rounded-rect lens frames with bridge and arms in silvery blue.
-  - **Hat**: dark crown rect + contrasting band + wider brim rect, drawn last so it sits on top of hair.
-  - **Face-down state**: dark card with a grey cross — used for eliminated characters.
-  - Three CSS size variants: `sm` (72 px art, for opponent grid), `md` (100 px, own board),
-    `lg` (148 px, Mystery Person display).
-  - `IsMystery="true"` adds a gold border glow. Optional `OnClick` callback for future interactivity.
-- Created **`Gallery.razor`** (`/gallery`): dev-utility page showing all 24 characters in a 6×4 `md`
-  grid with small attribute-chip summaries per card, a size-comparison section (sm/md/lg of same
-  character), and a card-states section (normal / mystery / face-down).
-- Build result: **0 errors, 0 warnings**.
-
-### Notes
-- The gallery page is accessible at `/gallery` by URL — no navigation link in the game UI.
-  It exists only for visual QA and developer inspection.
-- All visual information encoded purely in SVG. Characters are meaningfully distinct at all three sizes.
-- FaceCard uses Blazor CSS isolation (`.razor.css`). The SVG scales via `width:100%; height:auto`.
-- Hat is always drawn last in SVG painter order, so it correctly sits on top of hair.
-
----
-
-## Iteration 3 — Mystery Person selection
-**Completed**: 2026-02-20
-
-### What was done
-- Added `GameSession.SelectMysteryPerson(string token, int characterId)`: validates player token,
-  sets `PlayerState.MysteryPersonId`, and when both players have confirmed advances `Phase` to
-  `Playing` and sets `RoundNumber = 1`. All state changes inside the session `_lock`; fires
-  `StateChanged` so both circuits re-render immediately.
-- Added `GameSessionService.SelectMysteryPerson(code, token, characterId)`: thin passthrough to
-  the session method, consistent with the service's existing API style.
-- Rewrote `Game.razor` from a placeholder into a three-screen state machine:
-  1. **Picker screen** (phase = `CharacterSelection`, player not yet confirmed): 6-column grid of
-     all 24 face cards at `md` size. Clicking a card sets it as pending (IsMystery glow); all other
-     cards dim to 35% opacity. Sticky footer bar shows a `sm` preview of the selected card, player
-     name, "Confirm" button, and "Change" button. Confirmation calls `SelectMysteryPerson`.
-  2. **Waiting screen** (phase = `CharacterSelection`, player confirmed): displays the chosen
-     Mystery Person at `lg` size with gold glow, "Locked In!" heading, opponent's name, and a
-     CSS spinner. Transitions automatically when the other player confirms (StateChanged event).
-  3. **Playing placeholder** (phase = `Playing`): card with both player names and round number,
-     ready to be replaced by the full board in Iteration 4.
-- Created `Game.razor.css`: scoped styles for `.selection-page` (flex-column, full-height),
-  `.selection-grid` (6-column CSS grid, 100px columns), `.selection-card-wrap--dimmed` (opacity
-  0.35 transition), `.selection-footer` (sticky bar), `.waiting-page`, `.waiting-card` (centered
-  panel with fadeIn animation). All colours use existing design tokens from `app.css`.
-- `Game.razor` implements `IDisposable` and unsubscribes `StateChanged` in `Dispose()` to prevent
-  memory leaks and cross-circuit ghost renders.
-- Build result: **0 errors, 0 warnings**.
-
-### Notes
-- Selection is simultaneous and independent — neither player knows what the other has chosen.
-- `_pendingId` is local component state; it is never persisted to the session. Only `MysteryPersonId`
-  on `PlayerState` is the confirmed server-side truth.
-- The `PlayerState.MysteryPersonId.HasValue` flag drives the picker/waiting branch; no separate
-  local "confirmed" boolean needed.
-- Phase transition (CharacterSelection → Playing) fires a single `StateChanged`, causing both
-  circuits' `OnSessionStateChanged` handlers to call `InvokeAsync(StateHasChanged)` simultaneously,
-  so both players see the Playing screen at essentially the same instant.
-
----
-
-## Iteration 4 — Game board layout
-**Completed**: 2026-02-20
-
-### What was done
-- Added `BoardOrder: List<int>` to `PlayerState` — a per-player randomly-shuffled list of all 24
-  character IDs. This determines the visual order of cards on each player's board, independently
-  randomised so both players see a different arrangement.
-- Added `GameSession.ShuffleBoardOrders()` (private, called inside `_lock`): uses
-  `Random.Shared.Shuffle(Span<T>)` on a cloned `int[]` of all character IDs to independently
-  shuffle both players' board orders. Called exactly once when phase transitions to Playing.
-- Added `using GuessWho.Data;` to `GameSession.cs` so it can access `CharacterData.All`.
-- Replaced the Playing-phase placeholder in `Game.razor` with the full two-column game board:
-  - **Left column** (`flex: 1`, `flex-direction: column`):
-    - **Opponent board (top, `flex: 0 0 40%`)**: header with opponent name; 6-column `sm` card
-      grid in opponent's `BoardOrder`; `FaceDown` driven by `_opponent.EliminatedIds`; read-only.
-    - **1px divider**.
-    - **Own board (bottom, `flex: 1`)**: header with player's own name; 6-column `md` card grid
-      in player's own `BoardOrder`; Mystery Person card gets `IsMystery="true"` (gold glow);
-      eliminated cards get `FaceDown="true"`. No `OnClick` yet (flip mechanic is Iteration 5).
-  - **Right column** (`width: 340px`, `flex-direction: column`, dark surface background):
-    - **Score bar**: round number, championship score with player names and gold numerals,
-      "Game in progress…" turn status placeholder.
-    - **Mystery Person panel**: `lg` FaceCard (gold glow), "Your Mystery Person" label,
-      keep-secret hint. Hidden from opponent (each player only sees their own `_me` data).
-    - **Chat panel** (`flex: 1`): scrollable log ("The game is afoot…" placeholder, messages
-      pin to bottom); disabled text input + Send button.
-- Added `Game.razor.css` board layout section: `.game-board`, `.game-left`, `.board-section`,
-  `.board-section--own`, `.board-divider`, `.board-header`, `.board-grid-area`, `.board-grid`,
-  `.board-grid--sm` (6×78px cols, 6px gap), `.board-grid--md` (6×108px cols, 8px gap),
-  `.game-right`, `.score-bar`, `.score-display`, `.score-name`, `.score-value`, `.score-dash`,
-  `.turn-status`, `.mystery-panel`, `.mystery-label`, `.mystery-card-wrap`, `.mystery-keep-secret`,
-  `.chat-panel`, `.chat-header`, `.chat-log`, `.chat-placeholder`, `.chat-input-area`,
-  `.chat-input`, `.chat-send-btn`.
-- Build result: **0 errors, 0 warnings**.
-
-### Notes
-- Both board grid areas use `overflow-y: auto` — each scrolls independently.
-- `min-height: 0` on `.board-section` and `.chat-panel` is essential for flex-in-flex overflow to work.
-- `justify-content: center` on `.board-grid` centres the 6-column track within the left column;
-  cards are left-aligned within each fixed-width cell.
-- `_me` is set once in `OnInitialized` and never re-assigned — since `PlayerState` is a reference type,
-  `_me.BoardOrder` automatically reflects server-side mutations to the same object.
-- The score bar displays `Player1?.RoundWins` and `Player2?.RoundWins` (both 0 at game start).
-  Championship scoring wired in Iteration 8.
-
----
-
-## Iteration 5 — Turn management
+## Iteration 9 — Guessing mechanic & round-end overlay
 **Completed**: 2026-02-21
 
 ### What was done
-- Added `ActivePlayerToken` (string, private set) to `GameSession`. Set to `Player1.Token` when phase
-  transitions to Playing. Never null during Playing phase.
-- Added `QuestionAsked` (bool, private set) to `GameSession`. Resets to `false` on each `StartNextTurn`.
-  Not wired to chat UI yet — chat flow wired in Iteration 6.
-- Added `IsActivePlayer(string token)` helper — null/empty safe, compares token to `ActivePlayerToken`.
-- Added `StartNextTurn(string callerToken)` inside `_lock`: no-ops if caller is not active player
-  (prevents double-fire from stale callbacks), flips `ActivePlayerToken` between P1/P2, resets
-  `QuestionAsked`, calls `NotifyStateChanged()`.
-- Added `GameSessionService.StartNextTurn(code, token)` passthrough.
-- `Game.razor`: added `_isMyTurn` computed property (reads `_session.IsActivePlayer(MyToken)`).
-  Turn status in score bar replaced with named indicator:
-  - Active: pulsing gold dot + "Your turn, [name]" (`.turn-status--active`, gold, bold)
-  - Inactive: "Waiting for [opponent]…" (`.turn-status--waiting`, muted italic)
-  Chat input and Send button: `disabled="@(!_isMyTurn)"`. Placeholder text changes to
-  "Waiting for your turn…" when inactive.
-  End Turn button rendered only for active player; calls `EndTurn()` → `StartNextTurn`.
-- `Game.razor.css`: `.turn-status--active`, `.turn-status--waiting`, `.turn-indicator-dot`
-  (7px pulsing gold dot using existing `dotPulse` keyframe from `app.css`). Chat input area
-  refactored to `flex-direction: column` with inner `.chat-input-row` for the input + send pair;
-  `.end-turn-btn` with gold border/text hover state.
+
+#### Server-side
+- Added `RoundEndReason` enum (`CorrectGuess`, `WrongGuess`) to `Enums.cs`.
+- Added `EndReason` (`RoundEndReason?`) and `RoundWinnerToken` (`string?`) properties to `GameSession`.
+  - Property is named `EndReason` (not `RoundEndReason`) to avoid naming conflict with the enum type.
+- Added `MakeGuess(callerToken, guessedCharacterId)` to `GameSession`:
+  - Guards: phase must be Playing, caller must be active player.
+  - Looks up opponent's `MysteryPersonId` and compares to the guessed ID.
+  - Correct guess → winner = caller, caller's `RoundWins++`, `EndReason = CorrectGuess`.
+  - Wrong guess → winner = opponent, opponent's `RoundWins++`, `EndReason = WrongGuess`.
+  - Clears `CountdownStartedAt` (cancels any running countdown), sets `Phase = RoundEnd`, fires `StateChanged`.
+- Added `StartNewRound(callerToken)` to `GameSession`:
+  - Guards: phase must be RoundEnd, caller must be a session participant.
+  - Increments `RoundNumber`, calls `ResetRoundState()`, sets `Phase = CharacterSelection`, fires `StateChanged`.
+- Added `EndGame(callerToken)` to `GameSession`:
+  - Guards: phase must be RoundEnd, caller must be a session participant.
+  - Sets `Phase = GameEnd`, fires `StateChanged` — both clients navigate home in `OnSessionStateChanged`.
+- Added private `ResetRoundState()` helper:
+  - Clears `MysteryPersonId`, `EliminatedIds`, `BoardOrder` on both players.
+  - Clears `_chatLog`, resets `QuestionAsked`, `CountdownStartedAt`, `ActivePlayerToken`, `RoundWinnerToken`, `EndReason`.
+  - Championship `RoundWins` are NOT touched.
+- Added `MakeGuess`, `StartNewRound`, `EndGame` passthrough methods to `GameSessionService`.
+
+#### FaceCard component
+- Added `IsGuessable` (`bool`) parameter to `FaceCard.razor`:
+  - Adds `face-card--guessable` CSS class to the wrapper.
+  - Updates `title` tooltip: "Click to guess this person".
+- Added `.face-card--guessable` CSS to `FaceCard.razor.css`:
+  - Blue border (`#58a6ff`) + stronger glow (`0 0 14px rgba(88,166,255,0.55)`) on hover.
+  - Name turns blue. Card lifts 3px. Active state resets to 0.
+
+#### Game.razor — Guess Mode
+- Added `_guessModeActive` (bool) and `_pendingGuessId` (int?) state variables.
+- Added `GetGuessCallback(characterId, canGuess)` helper using `EventCallback.Factory.Create` pattern.
+- Opponent board: each face-up card gets `IsGuessable=true` and an `OnClick` → `SetPendingGuess(id)` when `_guessModeActive && _isMyTurn && !isOppEliminated`. Board header shows "— GUESS MODE" label (blue).
+- Chat input area — new states:
+  - Normal (my turn, no question, not in guess mode): shows question input + **"🎯 Make a Guess Instead"** button below.
+  - Guess mode, no pending: shows blue hint text "🎯 Click a face on the opponent's board to guess" + "Cancel Guess Mode" button.
+  - Guess mode, pending card: shows confirmation panel (`guess-confirm-panel`) with character name, warning text ("A wrong guess means you lose the round immediately"), **Confirm Guess** and **Cancel** buttons.
+- New methods: `ActivateGuessMode()`, `CancelGuessMode()`, `SetPendingGuess(id)`, `ConfirmGuess()`.
+- `ConfirmGuess()` calls `GameSessionService.MakeGuess(Code, MyToken, _pendingGuessId)` then clears local guess-mode state.
+- `OnSessionStateChanged` clears `_guessModeActive` / `_pendingGuessId` when `!_isMyTurn || phase != Playing`.
+
+#### Game.razor — Round-End Overlay
+- Phase branch changed from `== GamePhase.Playing` to `is GamePhase.Playing or GamePhase.RoundEnd`.
+- When `Phase == RoundEnd`, a `position: fixed` overlay (`round-end-overlay`) appears on top of the game board:
+  - **Outcome heading** ("You win the round! 🎉" in green / "You lose the round" in red).
+  - **Subtext** explaining the reason ("Alex guessed correctly!" / "Bernard guessed wrong — Alex wins!").
+  - **Mystery Person reveal** — both players' Mystery People shown as `md` FaceCards with gold glow.
+  - **Championship score** recap (same layout as score bar).
+  - **New Round** (gold primary button) → calls `StartNewRound()` — first click wins (simplified; no consensus yet).
+  - **End Game** (secondary button) → calls `LeaveGame()` → server sets `Phase = GameEnd` → both circuits navigate to `/`.
+- `OnSessionStateChanged` now navigates home immediately when `Phase == GameEnd`.
+- `OnSessionStateChanged` now includes `GamePhase.RoundEnd` in the chat auto-scroll condition.
+
+#### CSS additions (Game.razor.css)
+- `.guess-mode-btn`, `.guess-mode-hint`, `.guess-mode-active` — guess mode trigger and hint styles.
+- `.guess-confirm-panel`, `.guess-confirm-name`, `.guess-confirm-warning`, `.guess-confirm-buttons` — confirmation panel.
+- `.btn-guess-confirm`, `.btn-guess-cancel` — confirmation action buttons.
+- `.round-end-overlay`, `.round-end-card` — fixed full-screen backdrop + animated modal card.
+- `.round-end-outcome`, `.round-end-outcome--win/.--loss`, `.round-end-subtext`, `.round-end-divider` — overlay content.
+- `.round-end-reveal`, `.round-end-reveal-slot`, `.round-end-reveal-label`, `.round-end-reveal-name` — Mystery Person reveal section.
+- `.round-end-score`, `.round-end-score-name`, `.round-end-score-value`, `.round-end-score-dash` — score recap.
+- `.round-end-actions` — action buttons row.
+
 - Build result: **0 errors, 0 warnings**.
 
 ### Notes
-- `_isMyTurn` is a computed property, not a field — re-evaluated on every render. Since `StateChanged`
-  fires `InvokeAsync(StateHasChanged)`, both circuits re-render after `StartNextTurn`, so the turn
-  indicator updates immediately for both players simultaneously.
-- No countdown timer yet — that is Iteration 3 of turn mechanics (currently item 3 in to-do.md).
-  For this iteration, only the End Turn button passes the turn.
-- `QuestionAsked` is tracked on the server but not yet connected to chat UI — fully wired in Iteration 6.
-
----
-
-## Iteration 6 — Chat panel & question flow
-**Completed**: 2026-02-21
-
-### What was done
-- Added `ChatMessageKind` enum (`Question`, `Answer`, `System`) to `Enums.cs`.
-- Created `Models/ChatMessage.cs`: `SenderName`, `Text`, `Kind` — immutable record-style class.
-- Updated `GameSession`:
-  - `_chatLog: List<ChatMessage>` (private), exposed as `IReadOnlyList<ChatMessage> ChatLog`.
-  - `AwaitingAnswer` computed property: `true` when `QuestionAsked` but the last log entry is not an `Answer`.
-  - `AskQuestion(callerToken, text)`: posts a Question to the log, sets `QuestionAsked = true`. No-ops if caller is not active player, question already asked, or text is empty.
-  - `AnswerQuestion(callerToken, yes)`: posts an Answer to the log. No-ops if caller is active player or `AwaitingAnswer` is false.
-  - `ShuffleBoardOrders()` now clears `_chatLog` at round start.
-- Added `AskQuestion` and `AnswerQuestion` passthroughs to `GameSessionService`.
-- Rewrote the chat panel in `Game.razor`:
-  - Injected `IJSRuntime JS` for auto-scroll.
-  - Real chat log rendered from `_session.ChatLog` with per-kind CSS classes; placeholder shows when empty.
-  - Input area branches across four turn states:
-    1. Active, no question yet → text input + Send button (Enter or click)
-    2. Active, question sent, awaiting answer → "Waiting for [opponent] to answer…"
-    3. Active, question answered → "Question answered — end your turn when ready."
-    4. Inactive, question awaiting answer → Yes / No buttons with asker's name
-    5. Inactive, nothing pending → disabled text input (waiting indicator)
-  - `SendQuestion()`: trims input, calls `AskQuestion`, clears field, scrolls log.
-  - `RespondToQuestion(bool yes)`: calls `AnswerQuestion`, scrolls log.
-  - `OnChatKeyDown`: submits on Enter.
-  - `ScrollChatToBottom()`: `eval` JS interop, swallows failures.
-  - `OnSessionStateChanged` now also auto-scrolls the log on every state change during Playing phase.
-- Added CSS in `Game.razor.css`:
-  - `.chat-msg` with `--question` (gold left border, gold sender), `--answer` (green right border, right-aligned, green sender), `--system` (muted italic centred) variants.
-  - `.chat-yn-row`, `.chat-yn-prompt`, `.chat-yn-buttons`, `.btn-yes` (green), `.btn-no` (red).
-  - `.chat-awaiting` (muted italic status line).
-- Build result: **0 errors, 0 warnings**.
-
-### Notes
-- `AwaitingAnswer` is a pure derived property on the server — no extra state field needed.
-- The Yes/No buttons are shown to the INACTIVE player only (`!_isMyTurn && _session.AwaitingAnswer`).
-- `QuestionAsked` stays `true` after the answer is received — this keeps the active player's input
-  locked for the rest of their turn. It resets in `StartNextTurn` (on turn end).
-- Auto-scroll uses `eval` JS interop — pragmatic for iteration 6; can be replaced with a proper
-  JS module in a later polish pass.
-- No countdown timer yet — that is Iteration 8 (turn end mechanics with 10-second countdown).
+- `StartNewRound` is first-click-wins (simplified). The full consensus mechanism (both players must agree, 60-second timeout) is iteration 2 in to-do.md.
+- `EndReason` property avoids `RoundEndReason` naming conflict with the enum type in the same namespace.
+- `GetGuessCallback` follows the same `EventCallback.Factory.Create` pattern as `GetEliminateCallback` to avoid Razor ternary type-inference issues.
+- The overlay uses `position: fixed` and `backdrop-filter: blur(3px)` so it floats above the entire game board — no DOM restructuring needed.
+- Face-down cards on the opponent's board are NOT guessable (guarding `!isOppEliminated`).
+- The `GameEnd` navigation is handled in `OnSessionStateChanged` for both players' circuits simultaneously.
 
 ---
 
@@ -246,21 +85,20 @@ Append-only chronological record. Most recent entry at the bottom.
 **Completed**: 2026-02-21
 
 ### What was done
-- Added `GameSession.EliminateCharacter(callerToken, characterId)`:
-  - Guarded on Playing phase, active player only, Mystery Person immunity (`MysteryPersonId` check), and
-    idempotency (`HashSet.Add` returns false if already present — double-click safe).
-  - Fires `NotifyStateChanged()` on every successful elimination so both circuits re-render immediately.
-- Added `GameSessionService.EliminateCharacter(code, token, characterId)` thin passthrough.
+- Added `EliminateCharacter(callerToken, characterId)` to `GameSession`:
+  - Guards: phase must be Playing, caller must be active player.
+  - `MysteryPersonId` is immune (no-op if ID matches).
+  - `EliminatedIds.Add()` is idempotent (HashSet returns false if already present).
+  - Fires `StateChanged` on every successful elimination.
+- Added `EliminateCharacter(code, token, characterId)` passthrough to `GameSessionService`.
 - Updated `FaceCard.razor`:
-  - New `IsEliminatable` boolean parameter (default: false). Adds `.face-card--eliminatable` CSS class
-    and tooltip `"Click to eliminate"` when true.
-- Updated `FaceCard.razor.css`:
-  - `.face-card--eliminatable:hover` overrides the default blue interactive highlight with a red border
-    (`#e05555`), red box-shadow, red name tint, and a 2px lift animation. Uses `!important` to override
-    the generic `[style*="cursor:pointer"]:hover` blue rule.
-- Updated `Game.razor` own board foreach:
-  - `canEliminate = _isMyTurn && !isMystery && !isEliminated` computed per card.
-  - `GetEliminateCallback(int characterId, bool canEliminate)`: returns a properly typed
+  - New `IsEliminatable` parameter adds `.face-card--eliminatable` CSS class.
+  - `title` attribute set to "Click to eliminate" when `IsEliminatable`.
+- Added `.face-card--eliminatable` CSS to `FaceCard.razor.css`:
+  - Red border + glow on hover overriding default blue.
+  - Name tint red. Card lifts 2px. Active state resets.
+- Updated `Game.razor`:
+  - `GetEliminateCallback(characterId, canEliminate)` returns typed
     `EventCallback<Character?>` using `EventCallback.Factory.Create` when active; avoids Razor ternary
     lambda type-inference issues.
   - `EliminateCard(int characterId)`: client-side guard (`_isMyTurn && MyToken is not null`) then

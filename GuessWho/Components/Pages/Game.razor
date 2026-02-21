@@ -103,8 +103,8 @@ else if (_session.Phase == GamePhase.CharacterSelection && _me.MysteryPersonId.H
     </div>
 }
 
-@* ── Playing phase — full game board ───────────────────────── *@
-else if (_session.Phase == GamePhase.Playing)
+@* ── Playing / RoundEnd phase — full game board (+ overlay) ── *@
+else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
 {
     var myPerson = CharacterData.GetById(_me!.MysteryPersonId ?? 0);
 
@@ -115,10 +115,19 @@ else if (_session.Phase == GamePhase.Playing)
            ════════════════════════════════════════════════════════ *@
         <div class="game-left">
 
-            @* ── Opponent's board (top, sm cards, read-only) ─────── *@
+            @* ── Opponent's board (top, sm cards) ────────────────── *@
+            @* In guess mode the active player can click face-up cards to make a guess *@
             <div class="board-section">
                 <div class="board-header">
-                    <span class="board-label">@(_opponent?.Name ?? "Opponent")'s Board</span>
+                    <span class="board-label">
+                        @(_opponent?.Name ?? "Opponent")'s Board
+                        @if (_guessModeActive)
+                        {
+                            <span style="color:var(--accent-blue);margin-left:6px;font-size:0.68rem;">
+                                — GUESS MODE
+                            </span>
+                        }
+                    </span>
                     <span class="board-count">
                         @if (_opponent?.EliminatedIds.Count > 0)
                         {
@@ -136,10 +145,15 @@ else if (_session.Phase == GamePhase.Playing)
                         {
                             var localId = charId;
                             var ch = CharacterData.GetById(localId);
+                            var isOppEliminated = _opponent!.EliminatedIds.Contains(localId);
+                            // Cards can be guessed only when: guess mode active, it's my turn, not face-down
+                            var canGuess = _guessModeActive && _isMyTurn && !isOppEliminated;
                             <FaceCard Character="ch"
                                       Size="sm"
                                       ShowName="true"
-                                      FaceDown="@(_opponent!.EliminatedIds.Contains(localId))" />
+                                      FaceDown="@isOppEliminated"
+                                      IsGuessable="@canGuess"
+                                      OnClick="@GetGuessCallback(localId, canGuess)" />
                         }
                     </div>
                 </div>
@@ -253,7 +267,7 @@ else if (_session.Phase == GamePhase.Playing)
                 @* ── Input area — branches on turn state ─────────── *@
                 <div class="chat-input-area">
 
-                    @* End Turn always available to active player *@
+                    @* End Turn always available to active player (even in guess mode) *@
                     @if (_isMyTurn)
                     {
                         <button class="btn btn-secondary end-turn-btn" @onclick="EndTurn">
@@ -261,26 +275,60 @@ else if (_session.Phase == GamePhase.Playing)
                         </button>
                     }
 
-                    @* State 1: Active player, no question asked yet — show text input *@
+                    @* ── Active player: no question asked yet ────────── *@
                     @if (_isMyTurn && !_session.QuestionAsked)
                     {
-                        <div class="chat-input-row">
-                            <input class="text-input chat-input"
-                                   type="text"
-                                   placeholder="Ask a yes/no question…"
-                                   @bind="_chatInput"
-                                   @bind:event="oninput"
-                                   @onkeydown="OnChatKeyDown"
-                                   maxlength="200" />
-                            <button class="btn btn-primary chat-send-btn"
-                                    disabled="@(string.IsNullOrWhiteSpace(_chatInput))"
-                                    @onclick="SendQuestion">
-                                Send
+                        @if (_guessModeActive)
+                        {
+                            @* Guess mode active — confirmation or hint *@
+                            @if (_pendingGuessId.HasValue)
+                            {
+                                @* Player has clicked a card — show confirmation *@
+                                var pendingChar = CharacterData.GetById(_pendingGuessId.Value);
+                                <div class="guess-confirm-panel">
+                                    <div class="guess-confirm-name">@pendingChar?.Name</div>
+                                    <div class="guess-confirm-warning">
+                                        Guess this person? A wrong guess means you lose the round immediately.
+                                    </div>
+                                    <div class="guess-confirm-buttons">
+                                        <button class="btn-guess-confirm" @onclick="ConfirmGuess">Confirm Guess</button>
+                                        <button class="btn-guess-cancel"  @onclick="CancelGuessMode">Cancel</button>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                @* No pending card yet — show instruction + cancel *@
+                                <div class="guess-mode-active">
+                                    <p class="guess-mode-hint">🎯 Click a face on the opponent's board to guess</p>
+                                    <button class="btn-guess-cancel" @onclick="CancelGuessMode">Cancel Guess Mode</button>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            @* Normal state — question input + Make a Guess button *@
+                            <div class="chat-input-row">
+                                <input class="text-input chat-input"
+                                       type="text"
+                                       placeholder="Ask a yes/no question…"
+                                       @bind="_chatInput"
+                                       @bind:event="oninput"
+                                       @onkeydown="OnChatKeyDown"
+                                       maxlength="200" />
+                                <button class="btn btn-primary chat-send-btn"
+                                        disabled="@(string.IsNullOrWhiteSpace(_chatInput))"
+                                        @onclick="SendQuestion">
+                                    Send
+                                </button>
+                            </div>
+                            <button class="guess-mode-btn" @onclick="ActivateGuessMode">
+                                🎯 Make a Guess Instead
                             </button>
-                        </div>
+                        }
                     }
 
-                    @* State 2: Active player, question asked — show lock message *@
+                    @* ── Active player: question already asked ────────── *@
                     else if (_isMyTurn && _session.QuestionAsked)
                     {
                         @if (_session.AwaitingAnswer)
@@ -299,7 +347,7 @@ else if (_session.Phase == GamePhase.Playing)
                         }
                     }
 
-                    @* State 3: Inactive player, question awaiting answer — show Yes/No *@
+                    @* ── Inactive player: question awaiting answer ────── *@
                     else if (!_isMyTurn && _session.AwaitingAnswer)
                     {
                         <div class="chat-yn-row">
@@ -311,7 +359,7 @@ else if (_session.Phase == GamePhase.Playing)
                         </div>
                     }
 
-                    @* State 4: Inactive player, nothing to answer — waiting indicator *@
+                    @* ── Inactive player: nothing to do — locked ──────── *@
                     else
                     {
                         <div class="chat-input-row">
@@ -328,6 +376,89 @@ else if (_session.Phase == GamePhase.Playing)
 
         </div>
     </div>
+
+    @* ── Round-End Overlay ───────────────────────────────────── *@
+    @* Rendered on top of the board when the phase is RoundEnd.  *@
+    @if (_session.Phase == GamePhase.RoundEnd)
+    {
+        var isWinner   = _session.RoundWinnerToken == MyToken;
+        var winnerName = _session.GetPlayer(_session.RoundWinnerToken ?? "")?.Name ?? "Unknown";
+        var loserName  = _session.GetOpponent(_session.RoundWinnerToken ?? "")?.Name ?? "Unknown";
+
+        var p1Person = _session.Player1?.MysteryPersonId.HasValue == true
+            ? CharacterData.GetById(_session.Player1.MysteryPersonId.Value) : null;
+        var p2Person = _session.Player2?.MysteryPersonId.HasValue == true
+            ? CharacterData.GetById(_session.Player2.MysteryPersonId.Value) : null;
+
+        <div class="round-end-overlay">
+            <div class="round-end-card">
+
+                @* Outcome heading *@
+                <div class="round-end-outcome @(isWinner ? "round-end-outcome--win" : "round-end-outcome--loss")">
+                    @if (isWinner)
+                    {
+                        @("You win the round! 🎉")
+                    }
+                    else
+                    {
+                        @("You lose the round")
+                    }
+                </div>
+
+                @* Explanation *@
+                <p class="round-end-subtext">
+                    @if (_session.EndReason == RoundEndReason.CorrectGuess)
+                    {
+                        @($"{winnerName} guessed correctly!")
+                    }
+                    else
+                    {
+                        @($"{loserName} guessed wrong — {winnerName} wins!")
+                    }
+                </p>
+
+                <div class="round-end-divider"></div>
+
+                @* Reveal both Mystery People *@
+                <div class="round-end-reveal">
+                    @if (p1Person is not null)
+                    {
+                        <div class="round-end-reveal-slot">
+                            <div class="round-end-reveal-label">@(_session.Player1?.Name)'s Person</div>
+                            <FaceCard Character="p1Person" Size="md" ShowName="false" IsMystery="true" />
+                            <div class="round-end-reveal-name">@p1Person.Name</div>
+                        </div>
+                    }
+                    @if (p2Person is not null)
+                    {
+                        <div class="round-end-reveal-slot">
+                            <div class="round-end-reveal-label">@(_session.Player2?.Name)'s Person</div>
+                            <FaceCard Character="p2Person" Size="md" ShowName="false" IsMystery="true" />
+                            <div class="round-end-reveal-name">@p2Person.Name</div>
+                        </div>
+                    }
+                </div>
+
+                <div class="round-end-divider"></div>
+
+                @* Championship score *@
+                <div class="round-end-score">
+                    <span class="round-end-score-name">@_session.Player1?.Name</span>
+                    <span class="round-end-score-value">@_session.Player1?.RoundWins</span>
+                    <span class="round-end-score-dash">–</span>
+                    <span class="round-end-score-value">@_session.Player2?.RoundWins</span>
+                    <span class="round-end-score-name round-end-score-name--right">@_session.Player2?.Name</span>
+                </div>
+
+                @* Action buttons *@
+                <div class="round-end-actions">
+                    <button class="btn btn-primary" @onclick="NewRound">New Round</button>
+                    <button class="btn btn-secondary" @onclick="LeaveGame">End Game</button>
+                </div>
+
+            </div>
+        </div>
+    }
 }
 
 @* ── Fallback ──────────────────────────────────────────────── *@
@@ -349,8 +480,14 @@ else
     private PlayerState? _me;
     private PlayerState? _opponent;
 
-    /// <summary>Card the player has clicked but not yet confirmed.</summary>
+    /// <summary>Card the player has clicked but not yet confirmed (Mystery Person selection).</summary>
     private int? _pendingId;
+
+    /// <summary>True when the active player has activated guess mode on the opponent's board.</summary>
+    private bool _guessModeActive;
+
+    /// <summary>Character ID the active player has clicked in guess mode, awaiting confirmation.</summary>
+    private int? _pendingGuessId;
 
     /// <summary>Current value of the chat text input.</summary>
     private string _chatInput = "";
@@ -398,7 +535,22 @@ else
         await InvokeAsync(async () =>
         {
             _opponent = _session?.GetOpponent(MyToken ?? "");
+
+            // Clear guess mode when the turn passes to the opponent or the round ends
+            if (!_isMyTurn || _session?.Phase != GamePhase.Playing)
+            {
+                _guessModeActive = false;
+                _pendingGuessId  = null;
+            }
+
             StateHasChanged();
+
+            // Navigate home immediately when the session enters GameEnd phase
+            if (_session?.Phase == GamePhase.GameEnd)
+            {
+                Nav.NavigateTo("/");
+                return;
+            }
 
             // Start the countdown timer when the session enters the post-answer countdown window.
             // No-ops if the timer is already running (CountdownActive was already true last render).
@@ -406,7 +558,7 @@ else
                 StartCountdownTimer();
 
             // Auto-scroll chat log when new messages arrive
-            if (_session?.Phase == GamePhase.Playing)
+            if (_session?.Phase is GamePhase.Playing or GamePhase.RoundEnd)
                 await ScrollChatToBottom();
         });
     }
@@ -453,6 +605,15 @@ else
     private EventCallback<Character?> GetEliminateCallback(int characterId, bool canEliminate) =>
         canEliminate
             ? EventCallback.Factory.Create<Character?>(this, _ => EliminateCard(characterId))
+            : default;
+
+    /// <summary>
+    /// Returns an EventCallback that calls SetPendingGuess when canGuess is true,
+    /// or an empty callback otherwise.
+    /// </summary>
+    private EventCallback<Character?> GetGuessCallback(int characterId, bool canGuess) =>
+        canGuess
+            ? EventCallback.Factory.Create<Character?>(this, _ => SetPendingGuess(characterId))
             : default;
 
     /// <summary>
@@ -508,6 +669,54 @@ else
             // Swallow — JS interop failures should not crash the component
         }
     }
+
+    // ── Guess-mode actions ───────────────────────────────────────────────
+
+    private void ActivateGuessMode()
+    {
+        _guessModeActive = true;
+        _pendingGuessId  = null;
+    }
+
+    private void CancelGuessMode()
+    {
+        _guessModeActive = false;
+        _pendingGuessId  = null;
+    }
+
+    private void SetPendingGuess(int characterId) => _pendingGuessId = characterId;
+
+    /// <summary>
+    /// Submits the confirmed guess to the server. On return the phase will become RoundEnd
+    /// and StateChanged fires, triggering the overlay for both players.
+    /// </summary>
+    private void ConfirmGuess()
+    {
+        if (!_guessModeActive || !_pendingGuessId.HasValue || MyToken is null) return;
+        GameSessionService.MakeGuess(Code, MyToken, _pendingGuessId.Value);
+        _guessModeActive = false;
+        _pendingGuessId  = null;
+    }
+
+    // ── Post-round actions ───────────────────────────────────────────────
+
+    /// <summary>Starts a new round within the same session. Resets per-round state for both players.</summary>
+    private void NewRound()
+    {
+        if (MyToken is not null)
+            GameSessionService.StartNewRound(Code, MyToken);
+    }
+
+    /// <summary>Ends the game session; both players are navigated home via GameEnd phase.</summary>
+    private void LeaveGame()
+    {
+        if (MyToken is not null)
+            GameSessionService.EndGame(Code, MyToken);
+        else
+            Nav.NavigateTo("/");
+    }
+
+    // ── Mystery Person selection ─────────────────────────────────────────
 
     private void SetPending(int characterId) => _pendingId = characterId;
 

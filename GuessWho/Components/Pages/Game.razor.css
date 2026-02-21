@@ -631,3 +631,264 @@
 .waiting-spinner {
     margin-top: 0.5rem;
 }
+
+/* ============================================================
+   Guess Mode — chat input area additions
+   ============================================================ */
+
+/* Strip shown in chat-input-area when guess mode is active */
+.guess-mode-active {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.guess-mode-hint {
+    font-size: 0.78rem;
+    color: var(--accent-blue);
+    font-style: italic;
+    font-weight: 600;
+    text-align: center;
+    padding: 4px 0;
+    animation: popIn 180ms ease;
+}
+
+/* Make a Guess button — full-width, blue accent */
+.guess-mode-btn {
+    width: 100%;
+    padding: 0.42rem 1rem;
+    font-size: 0.82rem;
+    letter-spacing: 0.03em;
+    background: rgba(88, 166, 255, 0.1);
+    color: var(--accent-blue);
+    border: 1px solid rgba(88, 166, 255, 0.35);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 140ms ease, border-color 140ms ease, transform 80ms ease;
+}
+
+.guess-mode-btn:hover {
+    background: rgba(88, 166, 255, 0.2);
+    border-color: var(--accent-blue);
+    transform: translateY(-1px);
+}
+
+.guess-mode-btn:active {
+    transform: translateY(0);
+}
+
+/* Confirmation panel for a pending guess */
+.guess-confirm-panel {
+    background: rgba(88, 166, 255, 0.08);
+    border: 1px solid rgba(88, 166, 255, 0.3);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    animation: popIn 160ms ease;
+}
+
+.guess-confirm-name {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--accent-blue);
+    text-align: center;
+}
+
+.guess-confirm-warning {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.guess-confirm-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-guess-confirm {
+    flex: 1;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    background: rgba(88, 166, 255, 0.18);
+    color: var(--accent-blue);
+    border: 2px solid var(--accent-blue);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 140ms ease, transform 80ms ease;
+}
+
+.btn-guess-confirm:hover {
+    background: rgba(88, 166, 255, 0.32);
+    transform: translateY(-1px);
+}
+
+.btn-guess-cancel {
+    flex: 1;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 140ms ease, border-color 140ms ease, transform 80ms ease;
+}
+
+.btn-guess-cancel:hover {
+    background: var(--bg-surface);
+    border-color: var(--accent-gold);
+    color: var(--accent-gold);
+    transform: translateY(-1px);
+}
+
+/* ============================================================
+   Round-End Overlay — shown on top of the game board
+   ============================================================ */
+
+/* Fixed full-screen dark backdrop */
+.round-end-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    animation: fadeIn 250ms ease;
+    backdrop-filter: blur(3px);
+}
+
+/* Centred result card */
+.round-end-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 64px rgba(0, 0, 0, 0.6);
+    padding: 2.5rem 3rem;
+    max-width: 640px;
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    animation: popIn 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Big win/loss outcome heading */
+.round-end-outcome {
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    text-align: center;
+    line-height: 1.15;
+}
+
+.round-end-outcome--win {
+    color: var(--accent-green);
+}
+
+.round-end-outcome--loss {
+    color: var(--accent-red);
+}
+
+/* Secondary explanation line */
+.round-end-subtext {
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+/* Horizontal divider */
+.round-end-divider {
+    width: 100%;
+    height: 1px;
+    background: var(--border-subtle);
+}
+
+/* Mystery Person reveal — two cards side by side */
+.round-end-reveal {
+    display: flex;
+    gap: 2.5rem;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+.round-end-reveal-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.round-end-reveal-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.round-end-reveal-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+/* Championship score recap */
+.round-end-score {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 10px 24px;
+}
+
+.round-end-score-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.round-end-score-name--right {
+    text-align: right;
+}
+
+.round-end-score-value {
+    font-size: 1.6rem;
+    font-weight: 900;
+    font-family: var(--font-mono);
+    color: var(--accent-gold);
+    min-width: 22px;
+    text-align: center;
+}
+
+.round-end-score-dash {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+/* Action buttons row */
+.round-end-actions {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    margin-top: 0.25rem;
+}
+
+.round-end-actions .btn {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+}

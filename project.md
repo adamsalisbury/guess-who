@@ -64,54 +64,65 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 8)
+## Current state (after Iteration 9)
 - Landing page functional: name entry, New Game (creates session), Join Game (validates code, joins session)
 - Lobby page functional: both players shown by name, connection status, auto-navigation to game page
 - Both players auto-navigate to `/game/{Code}` when lobby is full
 - **Mystery Person selection** (CharacterSelection phase): picker grid, footer preview, confirm flow, waiting screen — all functional and real-time
 - **Game board** (`/game/{Code}` Playing phase): full two-column desktop layout implemented:
   - **Left column** — two board sections stacked vertically, each independently scrollable:
-    - **Opponent board (top, ~40%)**: 6-column `sm`-card grid in opponent's `BoardOrder`; all face-up;
-      header shows opponent's name; read-only
+    - **Opponent board (top, ~40%)**: 6-column `sm`-card grid in opponent's `BoardOrder`; face-up cards are
+      guessable (blue hover) when the active player is in guess mode; "— GUESS MODE" label in header
     - **Own board (bottom, remaining)**: 6-column `md`-card grid in player's own `BoardOrder`; Mystery
       Person card has gold glow (`IsMystery`); header shows player's name
   - **Right column (340px)** — three stacked sections:
     - **Score bar**: Round number, championship score ("Alex 0 – 0 Bernard"), named turn indicator
       ("Your turn, [name]" gold/pulsing dot | "Waiting for [opponent]…" muted italic)
     - **Mystery Person panel**: `lg` FaceCard with gold glow, "Your Mystery Person" label, keep-secret hint
-    - **Chat panel** (Iteration 6): live message log with per-kind styling; four-state input area
-      (active pre-question → input; active awaiting answer → locked + "Waiting…"; active post-answer →
-      locked + "End your turn"; inactive pending → Yes/No buttons; inactive waiting → disabled input).
-      Enter key submits. Auto-scroll on new messages via JS interop.
-- **Turn management** (Iteration 5):
-  - `GameSession.ActivePlayerToken`: token of the current active player; set to Player1 on phase→Playing
-  - `GameSession.QuestionAsked`: `true` after question sent; resets in `StartNextTurn`
-  - `GameSession.AwaitingAnswer`: derived — true if `QuestionAsked` and last log entry is not an Answer
-  - `GameSession.AskQuestion(token, text)`: posts Question to log, sets `QuestionAsked`
-  - `GameSession.AnswerQuestion(token, yes)`: posts Answer to log; locked to inactive player only
-  - `GameSession.StartNextTurn()`: flips turn between players under `_lock`, resets `QuestionAsked`
-  - `_isMyTurn` computed property in `Game.razor` drives all conditional UI
-  - "End Turn" button passes turn immediately; both circuits re-render via `StateChanged`
-- **Chat model** (Iteration 6):
-  - `Models/ChatMessage.cs`: `SenderName`, `Text`, `Kind (ChatMessageKind)`
-  - `Models/Enums.cs`: `ChatMessageKind { Question, Answer, System }`
-  - `GameSession.ChatLog`: `IReadOnlyList<ChatMessage>` — cleared at round start
-- `PlayerState.BoardOrder`: `List<int>` of all 24 character IDs in a player-specific random shuffle;
-  populated by `GameSession.ShuffleBoardOrders()` when phase transitions CharacterSelection → Playing.
-  Each player's board order is independently shuffled.
-- `GameSession.ShuffleBoardOrders()`: private helper; uses `Random.Shared.Shuffle(Span<T>)` on a cloned
-  array; called once inside the `_lock` at the moment of phase transition; also clears `_chatLog`.
-- **Face elimination** (Iteration 8):
-  - `GameSession.EliminateCharacter(callerToken, characterId)`: active player only, Mystery Person immune,
-    idempotent. Fires `StateChanged` so both circuits see the flip immediately.
-  - `GameSessionService.EliminateCharacter(code, token, characterId)`: thin passthrough.
-  - `FaceCard`: new `IsEliminatable` parameter adds `.face-card--eliminatable` CSS class + red hover
-    (border, glow, name tint, lift) overriding the default blue interactive highlight.
-  - `Game.razor`: `GetEliminateCallback()` returns typed `EventCallback<Character?>` via
-    `EventCallback.Factory.Create` to avoid Razor ternary type-inference issues. Board header counts
-    update dynamically (e.g. "18 remaining · 6 eliminated"). Opponent board sync is free — reads
-    `_opponent.EliminatedIds` on every render triggered by `StateChanged`.
+    - **Chat panel** (Iteration 6): live message log with per-kind styling; chat input area has 5 states:
+      1. Active, no question, not guess mode → input + "🎯 Make a Guess Instead" button
+      2. Active, no question, guess mode active, no pending → blue hint + "Cancel Guess Mode"
+      3. Active, no question, guess mode active, pending card → confirmation panel + Confirm/Cancel
+      4. Active, question asked → locked (Awaiting answer / Countdown / "end your turn")
+      5. Inactive pending answer → Yes/No buttons; Inactive waiting → disabled input
+- **Turn management** (Iteration 5): `GameSession.ActivePlayerToken`, `QuestionAsked`, `AwaitingAnswer` drive all turn-state logic
+- **Guessing mechanic** (Iteration 9):
+  - Active player clicks "🎯 Make a Guess Instead" → enters guess mode (blue hover on opponent's face-up cards)
+  - Clicking a card in guess mode → confirmation panel ("A wrong guess means you lose the round immediately")
+  - Confirm → `GameSessionService.MakeGuess(Code, MyToken, charId)` → phase transitions to `RoundEnd`
+  - Correct guess: caller wins round, `RoundWins++`. Wrong guess: opponent wins round, `RoundWins++`
+- **Round-end overlay** (Iteration 9, simplified):
+  - Fixed full-screen dark overlay with animated modal card shown to both players simultaneously
+  - Outcome heading (green "You win the round! 🎉" or red "You lose the round"), explanation subtext
+  - Both Mystery People revealed as gold-glowing `md` FaceCards
+  - Championship score recap
+  - **New Round** (gold) — first-click-wins; resets round state, back to CharacterSelection
+  - **End Game** (secondary) — sets `Phase = GameEnd`; both circuits navigate to `/` in `OnSessionStateChanged`
+  - Note: full consensus mechanism (both must agree, 60-second timeout, 5-round match champion) is next iteration
+- **Face elimination** (Iteration 8): active player clicks own board to flip faces down; `IsEliminatable` red hover;
+  Mystery Person immune. Opponent board syncs in real time (free consequence of `StateChanged` pattern).
+- **Turn countdown** (Iteration 7): `GameSession.CountdownStartedAt` set by `AnswerQuestion()`;
+  client-side 500ms timer drives display and auto-fires `StartNextTurn` after 10s (active player only).
 - Build: **0 errors, 0 warnings**
+
+## GameSession phase flow
+```
+Lobby → CharacterSelection → Playing ⇄ RoundEnd → GameEnd
+                               ↑_________________________|  (StartNewRound resets to CharacterSelection)
+```
+
+### Key GameSession methods
+| Method | Phase guard | Effect |
+|---|---|---|
+| `AddPlayer` | Lobby | Adds player; P2 join → CharacterSelection |
+| `SelectMysteryPerson` | CharacterSelection | Both chosen → Playing + shuffle boards |
+| `AskQuestion` | Playing, active player | Posts question, sets `QuestionAsked` |
+| `AnswerQuestion` | Playing, inactive player | Posts answer, starts countdown |
+| `EliminateCharacter` | Playing, active player | Flips face on own board |
+| `MakeGuess` | Playing, active player | Resolves round → RoundEnd |
+| `StartNextTurn` | Playing | Flips active player, resets per-turn state |
+| `StartNewRound` | RoundEnd | Increments round, resets state → CharacterSelection |
+| `EndGame` | RoundEnd | → GameEnd (both clients navigate home) |
 
 ## Design decisions & known trade-offs
 - No HTTPS redirect in dev (removed `app.UseHttpsRedirection()` from template to simplify local runs)
@@ -121,8 +132,6 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
 - `GameSession` imports `GuessWho.Data` (for `CharacterData`) to populate `BoardOrder`. Acceptable for
   a single-project small game; would separate in a multi-project architecture.
 - Chat auto-scroll uses `eval` JS interop (pragmatic). A proper JS module can replace it in a polish iteration.
-- **Turn countdown** (Iteration 7): `GameSession.CountdownStartedAt` (DateTime?) is set in
-  `AnswerQuestion()` and cleared in `StartNextTurn()`. Client uses a 500ms `System.Threading.Timer`
-  started from `OnSessionStateChanged` whenever `CountdownActive` is true. Only the active player's
-  timer fires `StartNextTurn`; both circuits display the countdown. Score bar shows "⏱ Turn ending in Xs…"
-  (visible to both players). Chat input area shows remaining seconds inline for the active player.
+- **Round-end overlay** is first-click-wins (simplified). Full consensus + 60s timeout is next to-do item.
+- `EndReason` property name avoids naming conflict with the `RoundEndReason` enum type in the same namespace.
+- `GetGuessCallback` and `GetEliminateCallback` both use `EventCallback.Factory.Create<Character?>` to avoid Razor ternary type-inference compiler errors.
