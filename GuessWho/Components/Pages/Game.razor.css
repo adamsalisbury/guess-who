@@ -712,6 +712,91 @@
 }
 
 /* ============================================================
+   Suggested Questions Panel
+   ============================================================ */
+
+/* Toggle button — dashed border hinting at expandability, gold on hover/open */
+.suggestions-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 0.32rem 0.75rem;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px dashed var(--border-subtle);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.suggestions-toggle:hover {
+    color: var(--accent-gold);
+    border-color: rgba(240, 165, 0, 0.4);
+    background: rgba(240, 165, 0, 0.04);
+}
+
+/* Open state — switch to solid border + gold tint */
+.suggestions-toggle--open {
+    color: var(--accent-gold);
+    border-style: solid;
+    border-color: rgba(240, 165, 0, 0.35);
+    background: rgba(240, 165, 0, 0.05);
+}
+
+.suggestions-toggle-icon {
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+/* Chevron arrow — dims relative to the label */
+.suggestions-toggle-arrow {
+    font-size: 0.6rem;
+    opacity: 0.7;
+    flex-shrink: 0;
+}
+
+/* Chip container — wraps chips naturally; slides in with popIn */
+.suggestions-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 4px 0 2px;
+    animation: popIn 140ms ease;
+}
+
+/* Individual question chip — small gold pill */
+.question-chip {
+    padding: 3px 10px;
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: rgba(240, 165, 0, 0.07);
+    border: 1px solid rgba(240, 165, 0, 0.22);
+    border-radius: 999px;
+    cursor: pointer;
+    line-height: 1.65;
+    white-space: nowrap;
+    letter-spacing: 0.01em;
+    transition: color 110ms ease, background 110ms ease, border-color 110ms ease, transform 80ms ease;
+}
+
+.question-chip:hover {
+    color: var(--accent-gold);
+    background: rgba(240, 165, 0, 0.18);
+    border-color: rgba(240, 165, 0, 0.55);
+    transform: translateY(-1px);
+}
+
+.question-chip:active {
+    transform: translateY(0);
+}
+
+/* ============================================================
    Guess Mode — chat input area additions
    ============================================================ */
 

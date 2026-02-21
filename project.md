@@ -64,7 +64,7 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 11)
+## Current state (after Iteration 12)
 - Landing page functional: name entry, New Game (creates session), Join Game (validates code, joins session)
 - Lobby page functional: both players shown by name, connection status, auto-navigation to game page
 - Both players auto-navigate to `/game/{Code}` when lobby is full
@@ -79,12 +79,15 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
     - **Score bar**: Round number, championship score ("Alex 0 – 0 Bernard"), named turn indicator
       ("Your turn, [name]" gold/pulsing dot | "Waiting for [opponent]…" muted italic)
     - **Mystery Person panel**: `lg` FaceCard with gold glow, "Your Mystery Person" label, keep-secret hint
-    - **Chat panel** (Iteration 6, polished in Iteration 11): live message log; chat input area has 5 states:
-      1. Active, no question, not guess mode → input + "🎯 Make a Guess Instead" button
+    - **Chat panel** (Iteration 6, polished in Iterations 11–12): live message log; chat input area has 5 states:
+      1. Active, no question, not guess mode → input + "💡 Suggest a question" toggle + chip panel (when open) + "🎯 Make a Guess Instead" button
       2. Active, no question, guess mode active, no pending → blue hint + "Cancel Guess Mode"
       3. Active, no question, guess mode active, pending card → confirmation panel + Confirm/Cancel
       4. Active, question asked → locked (Awaiting answer / Countdown / "end your turn")
       5. Inactive pending answer → Yes/No buttons; Inactive waiting → disabled input
+- **Suggested questions** (Iteration 12): collapsible chip panel with 14 canned yes/no questions covering
+      all character attributes. Toggle button between input row and Make a Guess button. Clicking a chip
+      populates the text input (editable before send). Panel auto-closes on send, turn change, chip click.
 - **Chat log readability** (Iteration 11): distinct visual treatment per message kind:
   - Question: gold bubble (flat top-left corner), sender name + turn tag header, question text below
   - Answer: green bubble (flat top-right corner), large bold "Yes"/"No" + small sender name

@@ -1,5 +1,56 @@
 # Guess Who? — Completed Work Log
 
+## Iteration 12 — Suggested questions UI
+**Completed**: 2026-02-21
+
+### What was done
+
+#### Game.razor — markup
+- Added a **"💡 Suggest a question"** toggle button in the chat input area, visible only when it is the
+  active player's turn, no question has been asked, and guess mode is not active (same conditions as the
+  question input itself).
+- Toggle button sits between the chat input row and the "Make a Guess Instead" button.
+- Clicking the toggle sets `_suggestionsOpen = !_suggestionsOpen`. Button label changes between collapsed
+  and open states via the `--open` modifier class; a small ▲/▼ arrow and `title` attribute reinforce the
+  state visually.
+- When open, renders a `<div class="suggestions-panel">` containing 14 `<button class="question-chip">`
+  elements — one per attribute value in the character set:
+  - Glasses, hat, facial hair, long hair, bald, rosy cheeks, big nose, blue eyes, brown eyes, and all
+    five hair colours (blonde, red, white, black, brown).
+- Clicking any chip calls `SelectSuggestedQuestion(text)`: sets `_chatInput = text` and closes the panel.
+  The input stays editable so the player can tweak the wording before sending.
+- `_suggestionsOpen` is reset to `false` in three places: `SendQuestion()` (after send), `ToggleSuggestions()`
+  (toggled off by the user), and `OnSessionStateChanged()` (alongside guess mode on turn change).
+
+#### Game.razor — @code
+- Added `private bool _suggestionsOpen` state variable.
+- Added `private static readonly string[] SuggestedQuestions` — a static 14-item array covering all
+  player-visible character attributes. Static so it is allocated once and never re-created on re-render.
+- Added `ToggleSuggestions()` — flips `_suggestionsOpen`.
+- Added `SelectSuggestedQuestion(string questionText)` — sets `_chatInput` and closes the panel.
+- `SendQuestion()` now resets `_suggestionsOpen = false` after submitting.
+- `OnSessionStateChanged()` now resets `_suggestionsOpen = false` alongside `_guessModeActive`.
+
+#### Game.razor.css — new rules
+- `.suggestions-toggle` — full-width dashed-border toggle button; neutral colour, gold on hover/open.
+- `.suggestions-toggle--open` — solid border + gold tint when expanded.
+- `.suggestions-toggle-icon` / `.suggestions-toggle-arrow` — emoji and chevron fragments.
+- `.suggestions-panel` — flex-wrap container; `popIn` animation on entry.
+- `.question-chip` — small 999px-radius pill; gold background + border tint at rest; deeper gold on hover
+  with a 1px lift; snaps back on active.
+
+- Build result: **0 errors, 0 warnings**.
+
+### Notes
+- No server-side changes were required — the feature is entirely client-side UI.
+- `SuggestedQuestions` is `static readonly` to ensure it's not re-allocated on every component render.
+- `_suggestionsOpen` is intentionally not persisted across turn changes; it resets for a fresh UX each turn.
+- Chips use `white-space: nowrap` so long question strings don't wrap mid-chip; the flex container wraps
+  at chip boundaries instead, giving a natural newspaper-style layout.
+- "Brown eyes" was added to complement "blue eyes" — both eye colours in the character set now have a chip.
+
+---
+
 ## Iteration 11 — Chat log readability
 **Completed**: 2026-02-21
 

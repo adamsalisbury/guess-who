@@ -335,7 +335,7 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
                         }
                         else
                         {
-                            @* Normal state — question input + Make a Guess button *@
+                            @* Normal state — question input + suggestions + Make a Guess button *@
                             <div class="chat-input-row">
                                 <input class="text-input chat-input"
                                        type="text"
@@ -350,6 +350,29 @@ else if (_session.Phase is GamePhase.Playing or GamePhase.RoundEnd)
                                     Send
                                 </button>
                             </div>
+
+                            @* ── Suggested questions toggle + chip panel ────── *@
+                            <button class="suggestions-toggle @(_suggestionsOpen ? "suggestions-toggle--open" : "")"
+                                    @onclick="ToggleSuggestions"
+                                    title="@(_suggestionsOpen ? "Hide suggested questions" : "Show suggested questions")">
+                                <span class="suggestions-toggle-icon">💡</span>
+                                <span>Suggest a question</span>
+                                <span class="suggestions-toggle-arrow">@(_suggestionsOpen ? "▲" : "▼")</span>
+                            </button>
+
+                            @if (_suggestionsOpen)
+                            {
+                                <div class="suggestions-panel">
+                                    @foreach (var q in SuggestedQuestions)
+                                    {
+                                        var localQ = q;
+                                        <button class="question-chip" @onclick="@(() => SelectSuggestedQuestion(localQ))">
+                                            @localQ
+                                        </button>
+                                    }
+                                </div>
+                            }
+
                             <button class="guess-mode-btn" @onclick="ActivateGuessMode">
                                 🎯 Make a Guess Instead
                             </button>
@@ -586,6 +609,31 @@ else
     /// <summary>Current value of the chat text input.</summary>
     private string _chatInput = "";
 
+    /// <summary>Whether the suggested-questions chip panel is expanded.</summary>
+    private bool _suggestionsOpen;
+
+    /// <summary>
+    /// Canned yes/no questions covering every attribute in the character set.
+    /// Displayed as one-click chips that populate the chat input.
+    /// </summary>
+    private static readonly string[] SuggestedQuestions =
+    [
+        "Does your person wear glasses?",
+        "Does your person have a hat?",
+        "Does your person have facial hair?",
+        "Does your person have long hair?",
+        "Is your person bald?",
+        "Does your person have rosy cheeks?",
+        "Does your person have a big nose?",
+        "Does your person have blue eyes?",
+        "Does your person have brown eyes?",
+        "Does your person have blonde hair?",
+        "Does your person have red hair?",
+        "Does your person have white hair?",
+        "Does your person have black hair?",
+        "Does your person have brown hair?",
+    ];
+
     /// <summary>Reference to the chat log div, used for auto-scroll.</summary>
     private ElementReference _chatLogRef;
 
@@ -630,11 +678,12 @@ else
         {
             _opponent = _session?.GetOpponent(MyToken ?? "");
 
-            // Clear guess mode when the turn passes to the opponent or the round ends
+            // Clear guess mode and suggestion panel when the turn passes or the round ends
             if (!_isMyTurn || _session?.Phase != GamePhase.Playing)
             {
                 _guessModeActive = false;
                 _pendingGuessId  = null;
+                _suggestionsOpen = false;
             }
 
             StateHasChanged();
@@ -733,7 +782,21 @@ else
         if (!_isMyTurn || string.IsNullOrWhiteSpace(_chatInput)) return;
         GameSessionService.AskQuestion(Code, MyToken!, _chatInput.Trim());
         _chatInput = "";
+        _suggestionsOpen = false;
         await ScrollChatToBottom();
+    }
+
+    /// <summary>Expands or collapses the suggested-questions chip panel.</summary>
+    private void ToggleSuggestions() => _suggestionsOpen = !_suggestionsOpen;
+
+    /// <summary>
+    /// Populates the chat input with the selected suggested question and closes the chip panel.
+    /// The player may edit the text before sending.
+    /// </summary>
+    private void SelectSuggestedQuestion(string questionText)
+    {
+        _chatInput        = questionText;
+        _suggestionsOpen  = false;
     }
 
     /// <summary>Called when the inactive player clicks Yes or No to answer the pending question.</summary>
