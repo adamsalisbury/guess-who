@@ -20,10 +20,22 @@ public sealed class GameSession
     public string ActivePlayerToken { get; private set; } = "";
 
     /// <summary>
-    /// Whether a question has already been asked and answered this turn.
+    /// Whether a question has already been asked this turn (answered or not).
     /// When true, the chat input is locked for the active player until the turn passes.
     /// </summary>
     public bool QuestionAsked { get; private set; }
+
+    /// <summary>
+    /// True when a question has been asked this turn but the opponent has not yet answered.
+    /// Drives the Yes/No button display for the inactive player.
+    /// </summary>
+    public bool AwaitingAnswer =>
+        QuestionAsked && (_chatLog.Count == 0 || _chatLog[^1].Kind != ChatMessageKind.Answer);
+
+    private readonly List<ChatMessage> _chatLog = [];
+
+    /// <summary>Ordered list of all messages in the current round's chat log.</summary>
+    public IReadOnlyList<ChatMessage> ChatLog => _chatLog.AsReadOnly();
 
     /// <summary>Returns true if the specified token belongs to the currently active player.</summary>
     public bool IsActivePlayer(string token) =>
@@ -112,6 +124,56 @@ public sealed class GameSession
         }
     }
 
+    /// <summary>
+    /// Posts a question from the active player into the chat log and locks further questions
+    /// for this turn. No-ops if the caller is not the active player, a question has already
+    /// been asked this turn, or the text is empty.
+    /// </summary>
+    public void AskQuestion(string callerToken, string text)
+    {
+        lock (_lock)
+        {
+            if (callerToken != ActivePlayerToken) return;
+            if (QuestionAsked) return;
+
+            var trimmed = text.Trim();
+            if (string.IsNullOrEmpty(trimmed)) return;
+
+            var sender = GetPlayer(callerToken)!;
+            _chatLog.Add(new ChatMessage
+            {
+                SenderName = sender.Name,
+                Text = trimmed,
+                Kind = ChatMessageKind.Question
+            });
+            QuestionAsked = true;
+            NotifyStateChanged();
+        }
+    }
+
+    /// <summary>
+    /// Records the inactive player's yes or no answer to the pending question.
+    /// No-ops if the caller is the active player or no question is awaiting an answer.
+    /// </summary>
+    public void AnswerQuestion(string callerToken, bool yes)
+    {
+        lock (_lock)
+        {
+            if (callerToken == ActivePlayerToken) return;  // active player cannot answer their own question
+            if (!AwaitingAnswer) return;                   // nothing pending
+
+            var responder = GetPlayer(callerToken)!;
+            _chatLog.Add(new ChatMessage
+            {
+                SenderName = responder.Name,
+                Text = yes ? "Yes" : "No",
+                Kind = ChatMessageKind.Answer
+            });
+            // QuestionAsked stays true — input remains locked until the turn ends
+            NotifyStateChanged();
+        }
+    }
+
     public PlayerState? GetPlayer(string token) =>
         Player1?.Token == token ? Player1
         : Player2?.Token == token ? Player2
@@ -129,6 +191,7 @@ public sealed class GameSession
     /// </summary>
     private void ShuffleBoardOrders()
     {
+        _chatLog.Clear();
         var allIds = CharacterData.All.Select(c => c.Id).ToArray();
 
         // Player 1's board — shuffle a fresh copy

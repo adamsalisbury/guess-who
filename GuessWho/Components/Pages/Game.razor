@@ -3,6 +3,7 @@
 @implements IDisposable
 @inject GameSessionService GameSessionService
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 @using GuessWho.Data
 @using GuessWho.Models
 
@@ -206,23 +207,93 @@ else if (_session.Phase == GamePhase.Playing)
             @* ── Chat panel ──────────────────────────────────────── *@
             <div class="chat-panel">
                 <div class="chat-header">Chat</div>
-                <div class="chat-log">
-                    <p class="chat-placeholder">The game is afoot…</p>
+
+                @* ── Message log ─────────────────────────────────── *@
+                <div class="chat-log" @ref="_chatLogRef">
+                    @if (_session!.ChatLog.Count == 0)
+                    {
+                        <p class="chat-placeholder">The game is afoot…</p>
+                    }
+                    else
+                    {
+                        @foreach (var msg in _session.ChatLog)
+                        {
+                            var kindClass = msg.Kind.ToString().ToLowerInvariant();
+                            <div class="chat-msg chat-msg--@kindClass">
+                                <span class="chat-msg-sender">@msg.SenderName</span>
+                                <span class="chat-msg-text">@msg.Text</span>
+                            </div>
+                        }
+                    }
                 </div>
+
+                @* ── Input area — branches on turn state ─────────── *@
                 <div class="chat-input-area">
+
+                    @* End Turn always available to active player *@
                     @if (_isMyTurn)
                     {
                         <button class="btn btn-secondary end-turn-btn" @onclick="EndTurn">
                             End Turn
                         </button>
                     }
-                    <div class="chat-input-row">
-                        <input class="text-input chat-input"
-                               type="text"
-                               placeholder="@(_isMyTurn ? "Ask a yes/no question…" : "Waiting for your turn…")"
-                               disabled="@(!_isMyTurn)" />
-                        <button class="btn btn-primary chat-send-btn" disabled="@(!_isMyTurn)">Send</button>
-                    </div>
+
+                    @* State 1: Active player, no question asked yet — show text input *@
+                    @if (_isMyTurn && !_session.QuestionAsked)
+                    {
+                        <div class="chat-input-row">
+                            <input class="text-input chat-input"
+                                   type="text"
+                                   placeholder="Ask a yes/no question…"
+                                   @bind="_chatInput"
+                                   @bind:event="oninput"
+                                   @onkeydown="OnChatKeyDown"
+                                   maxlength="200" />
+                            <button class="btn btn-primary chat-send-btn"
+                                    disabled="@(string.IsNullOrWhiteSpace(_chatInput))"
+                                    @onclick="SendQuestion">
+                                Send
+                            </button>
+                        </div>
+                    }
+
+                    @* State 2: Active player, question asked — show lock message *@
+                    else if (_isMyTurn && _session.QuestionAsked)
+                    {
+                        @if (_session.AwaitingAnswer)
+                        {
+                            <p class="chat-awaiting">Waiting for @(_opponent?.Name ?? "opponent") to answer…</p>
+                        }
+                        else
+                        {
+                            <p class="chat-awaiting">Question answered — end your turn when ready.</p>
+                        }
+                    }
+
+                    @* State 3: Inactive player, question awaiting answer — show Yes/No *@
+                    else if (!_isMyTurn && _session.AwaitingAnswer)
+                    {
+                        <div class="chat-yn-row">
+                            <p class="chat-yn-prompt">Answer @(_session.GetPlayer(_session.ActivePlayerToken)?.Name ?? "opponent")'s question:</p>
+                            <div class="chat-yn-buttons">
+                                <button class="btn btn-yes" @onclick="@(() => RespondToQuestion(true))">Yes</button>
+                                <button class="btn btn-no"  @onclick="@(() => RespondToQuestion(false))">No</button>
+                            </div>
+                        </div>
+                    }
+
+                    @* State 4: Inactive player, nothing to answer — waiting indicator *@
+                    else
+                    {
+                        <div class="chat-input-row">
+                            <input class="text-input chat-input"
+                                   type="text"
+                                   placeholder="Waiting for your turn…"
+                                   disabled="true" />
+                            <button class="btn btn-primary chat-send-btn" disabled="true">Send</button>
+                        </div>
+                    }
+
                 </div>
             </div>
 
@@ -252,6 +323,12 @@ else
     /// <summary>Card the player has clicked but not yet confirmed.</summary>
     private int? _pendingId;
 
+    /// <summary>Current value of the chat text input.</summary>
+    private string _chatInput = "";
+
+    /// <summary>Reference to the chat log div, used for auto-scroll.</summary>
+    private ElementReference _chatLogRef;
+
     /// <summary>True when it is this player's turn to act.</summary>
     private bool _isMyTurn =>
         _session is not null && MyToken is not null && _session.IsActivePlayer(MyToken);
@@ -273,10 +350,13 @@ else
     /// </summary>
     private async void OnSessionStateChanged(object? sender, EventArgs e)
     {
-        await InvokeAsync(() =>
+        await InvokeAsync(async () =>
         {
             _opponent = _session?.GetOpponent(MyToken ?? "");
             StateHasChanged();
+            // Auto-scroll chat log when new messages arrive
+            if (_session?.Phase == GamePhase.Playing)
+                await ScrollChatToBottom();
         });
     }
 
@@ -285,6 +365,43 @@ else
     {
         if (MyToken is not null)
             GameSessionService.StartNextTurn(Code, MyToken);
+    }
+
+    /// <summary>Sends the current chat input as a question. Called by the Send button or Enter key.</summary>
+    private async Task SendQuestion()
+    {
+        if (!_isMyTurn || string.IsNullOrWhiteSpace(_chatInput)) return;
+        GameSessionService.AskQuestion(Code, MyToken!, _chatInput.Trim());
+        _chatInput = "";
+        await ScrollChatToBottom();
+    }
+
+    /// <summary>Called when the inactive player clicks Yes or No to answer the pending question.</summary>
+    private async Task RespondToQuestion(bool yes)
+    {
+        if (_isMyTurn || _session?.AwaitingAnswer != true) return;
+        GameSessionService.AnswerQuestion(Code, MyToken!, yes);
+        await ScrollChatToBottom();
+    }
+
+    /// <summary>Handles Enter-key press in the chat input to submit the question.</summary>
+    private async Task OnChatKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SendQuestion();
+    }
+
+    /// <summary>Scrolls the chat log to the bottom after a new message is added.</summary>
+    private async Task ScrollChatToBottom()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "document.querySelector('.chat-log')?.scrollTo({top:999999,behavior:'smooth'})");
+        }
+        catch
+        {
+            // Swallow — JS interop failures should not crash the component
+        }
     }
 
     private void SetPending(int characterId) => _pendingId = characterId;

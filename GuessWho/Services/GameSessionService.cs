@@ -77,6 +77,20 @@ public sealed class GameSessionService
     public void StartNextTurn(string code, string playerToken) =>
         GetSession(code)?.StartNextTurn(playerToken);
 
+    /// <summary>
+    /// Posts a question from the active player into the session's chat log.
+    /// No-ops if the session is not found, caller is not active, or question already asked.
+    /// </summary>
+    public void AskQuestion(string code, string playerToken, string text) =>
+        GetSession(code)?.AskQuestion(playerToken, text);
+
+    /// <summary>
+    /// Records the inactive player's yes/no answer to the pending question.
+    /// No-ops if the session is not found, caller is active, or nothing is awaiting an answer.
+    /// </summary>
+    public void AnswerQuestion(string code, string playerToken, bool yes) =>
+        GetSession(code)?.AnswerQuestion(playerToken, yes);
+
     /// <summary>Removes sessions that are empty or abandoned (no players for > 2 hours).</summary>
     public void RemoveSession(string code) =>
         _sessions.TryRemove(code.ToUpperInvariant().Trim(), out _);
