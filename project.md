@@ -64,7 +64,7 @@ Components subscribe on `OnInitializedAsync`, unsubscribe in `Dispose()`.
 When state changes (e.g. second player joins), the event fires on the server thread that made the change;
 the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back to its own render thread.
 
-## Current state (after Iteration 5)
+## Current state (after Iteration 6)
 - Landing page functional: name entry, New Game (creates session), Join Game (validates code, joins session)
 - Lobby page functional: both players shown by name, connection status, auto-navigation to game page
 - Both players auto-navigate to `/game/{Code}` when lobby is full
@@ -79,19 +79,28 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
     - **Score bar**: Round number, championship score ("Alex 0 – 0 Bernard"), named turn indicator
       ("Your turn, [name]" gold/pulsing dot | "Waiting for [opponent]…" muted italic)
     - **Mystery Person panel**: `lg` FaceCard with gold glow, "Your Mystery Person" label, keep-secret hint
-    - **Chat panel**: scrollable log with "The game is afoot…" placeholder; input + Send button enabled
-      only for active player; "End Turn" button shown to active player only
+    - **Chat panel** (Iteration 6): live message log with per-kind styling; four-state input area
+      (active pre-question → input; active awaiting answer → locked + "Waiting…"; active post-answer →
+      locked + "End your turn"; inactive pending → Yes/No buttons; inactive waiting → disabled input).
+      Enter key submits. Auto-scroll on new messages via JS interop.
 - **Turn management** (Iteration 5):
   - `GameSession.ActivePlayerToken`: token of the current active player; set to Player1 on phase→Playing
-  - `GameSession.QuestionAsked`: tracks whether a question was sent this turn (wired to chat in Iteration 6)
-  - `GameSession.StartNextTurn()`: flips turn between players under `_lock`, resets QuestionAsked
+  - `GameSession.QuestionAsked`: `true` after question sent; resets in `StartNextTurn`
+  - `GameSession.AwaitingAnswer`: derived — true if `QuestionAsked` and last log entry is not an Answer
+  - `GameSession.AskQuestion(token, text)`: posts Question to log, sets `QuestionAsked`
+  - `GameSession.AnswerQuestion(token, yes)`: posts Answer to log; locked to inactive player only
+  - `GameSession.StartNextTurn()`: flips turn between players under `_lock`, resets `QuestionAsked`
   - `_isMyTurn` computed property in `Game.razor` drives all conditional UI
   - "End Turn" button passes turn immediately; both circuits re-render via `StateChanged`
+- **Chat model** (Iteration 6):
+  - `Models/ChatMessage.cs`: `SenderName`, `Text`, `Kind (ChatMessageKind)`
+  - `Models/Enums.cs`: `ChatMessageKind { Question, Answer, System }`
+  - `GameSession.ChatLog`: `IReadOnlyList<ChatMessage>` — cleared at round start
 - `PlayerState.BoardOrder`: `List<int>` of all 24 character IDs in a player-specific random shuffle;
   populated by `GameSession.ShuffleBoardOrders()` when phase transitions CharacterSelection → Playing.
   Each player's board order is independently shuffled.
 - `GameSession.ShuffleBoardOrders()`: private helper; uses `Random.Shared.Shuffle(Span<T>)` on a cloned
-  array; called once inside the `_lock` at the moment of phase transition.
+  array; called once inside the `_lock` at the moment of phase transition; also clears `_chatLog`.
 - Build: **0 errors, 0 warnings**
 
 ## Design decisions & known trade-offs
@@ -101,5 +110,5 @@ the other circuit's handler calls `InvokeAsync(StateHasChanged)` to marshal back
 - Bootstrap CSS is included in the template but not actively used — custom CSS in `app.css` is the design system
 - `GameSession` imports `GuessWho.Data` (for `CharacterData`) to populate `BoardOrder`. Acceptable for
   a single-project small game; would separate in a multi-project architecture.
-- Chat input is disabled for inactive player; wired to question flow in Iteration 6
-- `QuestionAsked` flag exists server-side but not yet connected to chat UI (Iteration 6)
+- Chat auto-scroll uses `eval` JS interop (pragmatic). A proper JS module can replace it in a polish iteration.
+- No countdown timer yet — implemented in Iteration 8 (turn end mechanics)

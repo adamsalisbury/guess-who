@@ -195,3 +195,47 @@ Append-only chronological record. Most recent entry at the bottom.
 - No countdown timer yet — that is Iteration 3 of turn mechanics (currently item 3 in to-do.md).
   For this iteration, only the End Turn button passes the turn.
 - `QuestionAsked` is tracked on the server but not yet connected to chat UI — fully wired in Iteration 6.
+
+---
+
+## Iteration 6 — Chat panel & question flow
+**Completed**: 2026-02-21
+
+### What was done
+- Added `ChatMessageKind` enum (`Question`, `Answer`, `System`) to `Enums.cs`.
+- Created `Models/ChatMessage.cs`: `SenderName`, `Text`, `Kind` — immutable record-style class.
+- Updated `GameSession`:
+  - `_chatLog: List<ChatMessage>` (private), exposed as `IReadOnlyList<ChatMessage> ChatLog`.
+  - `AwaitingAnswer` computed property: `true` when `QuestionAsked` but the last log entry is not an `Answer`.
+  - `AskQuestion(callerToken, text)`: posts a Question to the log, sets `QuestionAsked = true`. No-ops if caller is not active player, question already asked, or text is empty.
+  - `AnswerQuestion(callerToken, yes)`: posts an Answer to the log. No-ops if caller is active player or `AwaitingAnswer` is false.
+  - `ShuffleBoardOrders()` now clears `_chatLog` at round start.
+- Added `AskQuestion` and `AnswerQuestion` passthroughs to `GameSessionService`.
+- Rewrote the chat panel in `Game.razor`:
+  - Injected `IJSRuntime JS` for auto-scroll.
+  - Real chat log rendered from `_session.ChatLog` with per-kind CSS classes; placeholder shows when empty.
+  - Input area branches across four turn states:
+    1. Active, no question yet → text input + Send button (Enter or click)
+    2. Active, question sent, awaiting answer → "Waiting for [opponent] to answer…"
+    3. Active, question answered → "Question answered — end your turn when ready."
+    4. Inactive, question awaiting answer → Yes / No buttons with asker's name
+    5. Inactive, nothing pending → disabled text input (waiting indicator)
+  - `SendQuestion()`: trims input, calls `AskQuestion`, clears field, scrolls log.
+  - `RespondToQuestion(bool yes)`: calls `AnswerQuestion`, scrolls log.
+  - `OnChatKeyDown`: submits on Enter.
+  - `ScrollChatToBottom()`: `eval` JS interop, swallows failures.
+  - `OnSessionStateChanged` now also auto-scrolls the log on every state change during Playing phase.
+- Added CSS in `Game.razor.css`:
+  - `.chat-msg` with `--question` (gold left border, gold sender), `--answer` (green right border, right-aligned, green sender), `--system` (muted italic centred) variants.
+  - `.chat-yn-row`, `.chat-yn-prompt`, `.chat-yn-buttons`, `.btn-yes` (green), `.btn-no` (red).
+  - `.chat-awaiting` (muted italic status line).
+- Build result: **0 errors, 0 warnings**.
+
+### Notes
+- `AwaitingAnswer` is a pure derived property on the server — no extra state field needed.
+- The Yes/No buttons are shown to the INACTIVE player only (`!_isMyTurn && _session.AwaitingAnswer`).
+- `QuestionAsked` stays `true` after the answer is received — this keeps the active player's input
+  locked for the rest of their turn. It resets in `StartNextTurn` (on turn end).
+- Auto-scroll uses `eval` JS interop — pragmatic for iteration 6; can be replaced with a proper
+  JS module in a later polish pass.
+- No countdown timer yet — that is Iteration 8 (turn end mechanics with 10-second countdown).
